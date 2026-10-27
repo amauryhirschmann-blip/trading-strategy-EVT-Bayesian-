@@ -1,0 +1,1324 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>QuantGuard Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<script>window.QG_STATIC = true;</script>
+<script src="volsurface.js"></script>
+<script src="static-live.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout : rail de navigation fixe + plan de travail en grille ; l'état (garantie, kill switch) toujours visible en tête. */
+:root {
+  --bg: #f4f6f8; --surface: #ffffff; --ink: #0f1720; --ink-2: #4a5563; --muted: #7b8594;
+  --line: #e2e6eb; --line-strong: #c9d0d8; --accent: #1f5fbf; --accent-wash: #e8f0fb;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+  --good: #0ca30c; --good-ink: #006300; --warn: #fab219; --serious: #ec835a; --crit: #d03b3b;
+  --good-wash: #e6f6e6; --warn-wash: #fff4dc; --crit-wash: #fbe9e9;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0c1015; --surface: #141a21; --ink: #e7ecf2; --ink-2: #aab5c3; --muted: #7f8a98;
+  --line: #242d38; --line-strong: #34404e; --accent: #5b9bea; --accent-wash: #16243a;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --good-ink: #2fbf2f;
+  --good-wash: #10261a; --warn-wash: #2c2410; --crit-wash: #2e1414; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0c1015; --surface: #141a21; --ink: #e7ecf2; --ink-2: #aab5c3; --muted: #7f8a98;
+  --line: #242d38; --line-strong: #34404e; --accent: #5b9bea; --accent-wash: #16243a;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --good-ink: #2fbf2f;
+  --good-wash: #10261a; --warn-wash: #2c2410; --crit-wash: #2e1414; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--f-body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num, td.n, .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+.app { display: grid; grid-template-columns: 208px minmax(0, 1fr); min-height: 100vh; }
+.rail { position: sticky; top: env(safe-area-inset-top, 0px); align-self: start; height: 100vh; padding: 20px 12px 20px max(12px, env(safe-area-inset-left, 0px));
+  border-right: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; gap: 20px; }
+.brand { font: 700 17px/1.1 var(--f-display); letter-spacing: .01em; padding: 0 8px; }
+.brand small { display: block; font: 500 11px var(--f-body); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; margin-top: 4px; }
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav a { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--r); color: var(--ink-2); text-decoration: none; font-weight: 500; }
+.nav a:hover { background: var(--bg); color: var(--ink); }
+.nav a[aria-current="page"] { background: var(--accent-wash); color: var(--accent); }
+.nav a .dot { width: 7px; height: 7px; border-radius: 50%; background: transparent; margin-left: auto; }
+.nav a .dot.on { background: var(--crit); }
+.rail-foot { margin-top: auto; font-size: 12px; color: var(--muted); padding: 0 8px; display: grid; gap: 6px; }
+
+main { min-width: 0; padding-block: 0 48px; }
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--line); padding-block: 12px; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px));
+  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.topbar h1 { font: 600 20px/1.2 var(--f-display); margin: 0 auto 0 0; text-wrap: balance; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; border: 1px solid var(--line-strong); color: var(--ink-2); background: var(--surface); white-space: nowrap; }
+.pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); font-style: normal; }
+.pill.good i { background: var(--good); } .pill.warn i { background: var(--warn); } .pill.crit i { background: var(--crit); }
+.pill.crit { border-color: var(--crit); color: var(--crit); background: var(--crit-wash); }
+.banner { margin: 16px 24px 0; padding: 12px 16px; border-radius: var(--r); border: 1px solid var(--crit); background: var(--crit-wash); color: var(--ink); }
+.banner b { color: var(--crit); }
+.banner.info { border-color: var(--line-strong); background: var(--surface); }
+
+.page { padding-block: 20px 0; padding-left: max(24px, env(safe-area-inset-left, 0px)); padding-right: max(24px, env(safe-area-inset-right, 0px)); display: grid; gap: 20px; }
+.page[hidden] { display: none !important; }
+.grid { display: grid; gap: 16px; }
+.g-kpi { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.g-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+.g-3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; min-width: 0; }
+.panel h2 { font: 600 15px/1.3 var(--f-display); margin: 0 0 4px; text-wrap: balance; }
+.panel .sub { color: var(--muted); font-size: 12.5px; margin: 0 0 12px; max-width: 72ch; }
+.section-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.section-head .idx { font: 600 12px var(--f-mono); color: var(--accent); }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; display: grid; gap: 2px; min-width: 0; }
+.kpi .lbl { font-size: 11.5px; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
+.kpi .val { font: 600 22px/1.2 var(--f-display); }
+.kpi .note { font-size: 12px; color: var(--ink-2); }
+.pos { color: var(--good-ink); } .neg { color: var(--crit); }
+
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th { text-align: left; font-weight: 500; color: var(--muted); font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; padding: 6px 10px; border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
+td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td.n, th.n { text-align: right; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background: var(--bg); color: var(--ink-2); white-space: nowrap; }
+.chip.good { background: var(--good-wash); color: var(--good-ink); }
+.chip.warn { background: var(--warn-wash); color: var(--ink); }
+.chip.crit { background: var(--crit-wash); color: var(--crit); }
+.chip.long { background: var(--accent-wash); color: var(--accent); }
+.empty { color: var(--muted); font-size: 13px; padding: 12px 0; }
+
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .grid-l { stroke: var(--line); stroke-width: 1; }
+.chart .axis { fill: var(--muted); font: 11px var(--f-mono); }
+.chart .base { stroke: var(--line-strong); }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 4px; padding: 6px 8px; font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.12); white-space: nowrap; z-index: 3; }
+.tip b { font-weight: 600; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin-top: 6px; }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 2px; margin-right: 6px; vertical-align: middle; background: var(--c); }
+.legend span.dash::before { background: repeating-linear-gradient(90deg, var(--c) 0 4px, transparent 4px 7px); }
+
+.meter { height: 8px; border-radius: 4px; background: var(--bg); border: 1px solid var(--line); position: relative; overflow: hidden; }
+.meter > b { position: absolute; inset: 0 auto 0 0; background: var(--s1); border-radius: 4px; }
+.meter > b.warn { background: var(--warn); } .meter > b.crit { background: var(--crit); }
+.range { position: relative; height: 18px; min-width: 140px; }
+.range .axisline { position: absolute; top: 8px; left: 0; right: 0; height: 1px; background: var(--line-strong); }
+.range .zero { position: absolute; top: 2px; bottom: 2px; width: 1px; background: var(--muted); }
+.range .band { position: absolute; top: 5px; height: 7px; border-radius: 4px; background: color-mix(in srgb, var(--s1) 35%, transparent); }
+.range .pt { position: absolute; top: 3px; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; background: var(--s1); border: 2px solid var(--surface); }
+
+.steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.step { border: 1px solid var(--line); border-radius: var(--r); padding: 10px; display: grid; gap: 2px; font-size: 12px; color: var(--ink-2); }
+.step b { font: 600 13px var(--f-display); color: var(--ink); }
+.step.done { background: var(--bg); }
+.step.cur { border-color: var(--accent); background: var(--accent-wash); }
+.kv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; font-size: 13px; }
+.kv dt { color: var(--ink-2); } .kv dd { margin: 0; text-align: right; font-family: var(--f-mono); }
+.ctx { display: grid; gap: 12px; }
+.ctx article { border-left: 2px solid var(--line-strong); padding-left: 12px; }
+.ctx h3 { font: 600 13px var(--f-display); margin: 0; }
+.ctx p { margin: 2px 0; max-width: 75ch; }
+.ctx .src { font-size: 12px; color: var(--muted); }
+.reco td:first-child { font-weight: 600; }
+.reco p { margin: 0; max-width: 64ch; font-size: 12.5px; color: var(--ink-2); }
+.procedure { margin: 0; padding-left: 20px; display: grid; gap: 4px; max-width: 75ch; }
+
+.prog { margin: 16px 24px 0; padding: 14px 16px; border-radius: var(--r); border: 1px solid var(--line-strong); background: var(--surface); display: grid; gap: 8px; }
+.prog.err { border-color: var(--crit); background: var(--crit-wash); }
+.prog .row { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; }
+.prog b { font: 600 14px var(--f-display); }
+.prog .steps4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.prog .steps4 span { font-size: 12px; padding: 6px 8px; border-radius: 4px; background: var(--bg); color: var(--muted); min-width: 0; }
+.prog .steps4 span.done { color: var(--good-ink); background: var(--good-wash); }
+.prog .steps4 span.cur { color: var(--accent); background: var(--accent-wash); font-weight: 600; }
+.prog .last { font: 12px var(--f-mono); color: var(--ink-2); overflow-wrap: anywhere; }
+.btn { font: 500 13px var(--f-body); padding: 6px 12px; border-radius: var(--r); border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+.btn:disabled { opacity: .5; cursor: default; }
+@media (max-width: 860px) { .prog { margin: 12px 16px 0; } .prog .steps4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.plot3d { width: 100%; height: 520px; min-width: 0; position: relative; }
+.plot-msg { height: 100%; display: grid; place-content: center; text-align: center; gap: 6px; padding: 24px; color: var(--ink-2); font-size: 13.5px; line-height: 1.6; background: var(--bg); border-radius: var(--r); }
+@media (max-width: 860px) { .plot3d { height: 380px; } }
+.vol-hint { margin-left: auto; font-size: 12px; color: var(--muted); }
+.live-tag { display: inline-block; font: 600 10.5px var(--f-body); color: var(--good-ink); letter-spacing: .02em; white-space: nowrap; }
+.close-tag { display: inline-block; font: 500 10.5px var(--f-body); color: var(--muted); white-space: nowrap; }
+@media (min-width: 1100px) { #kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.glossary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px 24px; margin: 0; }
+.glossary div { min-width: 0; }
+.glossary dt { font: 600 13px var(--f-display); }
+.glossary dd { margin: 2px 0 0; font-size: 13px; color: var(--ink-2); }
+#vol-crypto, #vol-rates { display: grid; gap: 20px; min-width: 0; }
+#vol-crypto[hidden], #vol-rates[hidden] { display: none !important; }
+.vol-tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.vol-tabs button, .seg button { font: 500 13px var(--f-body); padding: 6px 12px; border-radius: var(--r); border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.vol-tabs button[aria-selected="true"], .seg button[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent); border-color: var(--accent); }
+.vol-stamp { margin-left: auto; font-size: 12.5px; color: var(--ink-2); }
+.seg { display: inline-flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+.seg button { padding: 4px 10px; font-size: 12px; }
+.heat { border-collapse: separate; border-spacing: 2px; width: 100%; font-size: 12.5px; }
+.heat th { text-transform: none; letter-spacing: 0; font-size: 12px; text-align: center; border: 0; padding: 4px 6px; }
+.heat th.row { text-align: left; white-space: nowrap; }
+.heat td { text-align: center; padding: 8px 4px; border: 0; border-radius: 3px; font-family: var(--f-mono); font-variant-numeric: tabular-nums; min-width: 54px; }
+.heat td.na { background: var(--bg); color: var(--muted); }
+.heat-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font: 11.5px var(--f-mono); color: var(--muted); margin-top: 8px; }
+.heat-legend .bar { height: 8px; flex: 0 1 240px; border-radius: 4px; }
+#vol-exp { font: 13px var(--f-body); padding: 4px 8px; border-radius: var(--r); border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); margin-left: auto; }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); margin-left: auto; }
+.live-dot.on { background: var(--good); }
+@media (prefers-reduced-motion: no-preference) { .live-dot.on { animation: beat 1s ease-out infinite; } }
+@keyframes beat { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--good) 60%, transparent); } 100% { box-shadow: 0 0 0 6px transparent; } }
+.live-strip { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 12.5px; color: var(--ink-2); }
+.live-strip b { color: var(--ink); font-weight: 600; }
+.ticker { display: grid; gap: 8px; }
+.ticker .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ticker .px { font: 600 30px/1.1 var(--f-display); font-variant-numeric: tabular-nums; }
+.ticker .meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font: 12px var(--f-mono); color: var(--ink-2); }
+.flash-up { color: var(--good-ink); } .flash-dn { color: var(--crit); }
+.events { display: grid; gap: 4px; max-height: 300px; overflow-y: auto; font-size: 12.5px; }
+.events div { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+.events time { font: 11.5px var(--f-mono); color: var(--muted); }
+.events .crit { color: var(--crit); } .events .good { color: var(--good-ink); } .events .warn { color: var(--ink); font-weight: 500; }
+@media (max-width: 860px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .rail { position: static; height: auto; flex-direction: row; align-items: center; gap: 12px; padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  .brand small, .rail-foot { display: none; }
+  .nav { flex-direction: row; }
+  .nav a { white-space: nowrap; padding: 6px 10px; }
+  .topbar, .page { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .banner { margin: 12px 16px 0; }
+  .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: no-preference) { .nav a, .pill { transition: background .15s, color .15s; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="brand">QuantGuard<small>Taux &amp; crypto · capital garanti</small></div>
+    <nav class="nav" id="nav">
+      <a href="#direct">Direct<span class="live-dot" id="nav-live"></span></a>
+      <a href="#apercu">Vue d'ensemble</a>
+      <a href="#positions">Positions &amp; trades</a>
+      <a href="#marches">Marchés &amp; signaux</a>
+      <a href="#vol">Volatilité</a>
+      <a href="#validation">Validation &amp; déploiement</a>
+      <a href="#risques">Gestion des risques<span class="dot" id="nav-kill"></span></a>
+      <a href="#contexte">Préconisations</a>
+      <a href="#donnees">Données</a>
+    </nav>
+    <div class="rail-foot">
+      <span id="foot-gen">—</span>
+      <span id="foot-live">—</span>
+    </div>
+  </aside>
+  <main>
+    <div class="topbar">
+      <h1 id="page-title">Vue d'ensemble</h1>
+      <span class="pill" id="pill-feed"><i></i><span>Flux : connexion…</span></span>
+      <span class="pill" id="pill-mode"><i></i><span>—</span></span>
+      <span class="pill" id="pill-stage"><i></i><span>—</span></span>
+      <span class="pill" id="pill-kill"><i></i><span>—</span></span>
+    </div>
+    <div id="banner"></div>
+    <div id="progress"></div>
+
+    <!-- ============================================================ DIRECT -->
+    <section class="page" id="p-direct" hidden>
+      <div class="live-strip" id="live-strip"></div>
+      <div class="grid g-2" id="live-tickers"></div>
+      <div class="grid g-kpi" id="live-kpis"></div>
+      <div class="panel">
+        <h2>Positions marquées à la seconde</h2>
+        <p class="sub">La valeur des positions crypto suit le prix en direct ; celle des positions sur les taux est mise à jour une fois par jour, à la publication officielle. Si un prix touche la limite de perte (stop) ou l'objectif de gain, la position est fermée tout de suite.</p>
+        <div class="tbl-wrap" id="live-marks"></div>
+      </div>
+      <div class="grid g-2">
+        <div class="panel">
+          <h2>Kill switch en temps réel</h2>
+          <p class="sub">Le « bouton d'arrêt d'urgence » est vérifié chaque seconde. Il coupe tout si les pertes deviennent trop fortes, si les prix n'arrivent plus depuis 2 minutes, ou si deux plateformes affichent des prix trop différents (signe d'un problème de données).</p>
+          <div class="tbl-wrap" id="live-kill"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Signal crypto recalculé à la seconde</h2>
+        <p class="sub">Ce que le modèle pense des 5 prochains jours, recalculé chaque seconde avec le prix du moment. La « force » résume la conviction : au-dessus de 0,35, le modèle achèterait. La décision réelle n'est prise qu'une fois par jour, à la clôture, pour éviter d'acheter et vendre sans arrêt.</p>
+        <div class="tbl-wrap" id="live-nowcast"></div>
+      </div>
+      <div class="grid g-2">
+        <div class="panel">
+          <h2>Journal temps réel</h2>
+          <p class="sub">Ce qui s'est passé récemment : connexions aux plateformes, positions fermées, alertes.</p>
+          <div id="live-events" class="events"></div>
+        </div>
+        <div class="panel">
+          <h2>Traitements de fond</h2>
+          <p class="sub" id="job-sub">Collecte, recherche et forward test.</p>
+          <div id="job-log" class="events"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ VUE D'ENSEMBLE -->
+    <section class="page" id="p-apercu">
+      <div class="grid g-kpi" id="kpis"></div>
+      <div class="panel">
+        <h2>Valeur du fonds et capital protégé</h2>
+        <p class="sub">Courbe bleue : la valeur du portefeuille simulée sur le passé, puis en conditions réelles. Courbe orange : le plancher qui protège le capital ; la valeur du fonds ne doit jamais passer dessous. Le trait vertical sépare la période qui a servi à régler le modèle (à gauche) de la période de vérification qu'il n'a jamais vue (à droite).</p>
+        <div class="chart" id="ch-nav"></div>
+        <div class="legend"><span style="--c: var(--s1)">Valeur du fonds</span><span style="--c: var(--s2)">Plancher (capital protégé aujourd'hui)</span><span class="dash" style="--c: var(--muted)">Montant garanti à l'échéance</span></div>
+      </div>
+      <div class="grid g-2">
+        <div class="panel">
+          <h2>Résultats : période de réglage contre période de vérification</h2>
+          <p class="sub">« Hors-échantillon » = la période de test que le modèle n'a jamais vue pendant ses réglages. C'est la colonne la plus honnête.</p>
+          <div class="tbl-wrap" id="tbl-devoos"></div>
+        </div>
+        <div class="panel">
+          <h2>Ce que prévoit le modèle</h2>
+          <p class="sub">Gain ou perte attendu sur 5 jours pour chaque actif, avec la fourchette dans laquelle le résultat a 9 chances sur 10 de tomber.</p>
+          <div class="tbl-wrap" id="tbl-sig-mini"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ POSITIONS -->
+    <section class="page" id="p-positions" hidden>
+      <div class="panel">
+        <h2>Positions ouvertes</h2>
+        <p class="sub">Les paris en cours. Chacun a une limite de perte (stop) et un objectif de gain fixés dès l'achat, jamais au-delà de −30 % et +30 %.</p>
+        <div class="tbl-wrap" id="tbl-pos"></div>
+      </div>
+      <div class="grid g-2">
+        <div class="panel">
+          <h2>Distribution des rendements par trade</h2>
+          <p class="sub">Combien de positions ont gagné ou perdu combien. Les pointillés marquent les limites de −30 % et +30 % ; un dépassement ne peut venir que d'un saut brutal du prix à l'ouverture.</p>
+          <div class="chart" id="ch-hist"></div>
+        </div>
+        <div class="panel">
+          <h2>Statistiques de trading</h2>
+          <p class="sub">Sur toutes les positions fermées pendant la période de vérification.</p>
+          <dl class="kv" id="kv-trades"></dl>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Journal des trades</h2>
+        <p class="sub">Les 60 dernières positions fermées et la raison de leur fermeture.</p>
+        <div class="tbl-wrap" id="tbl-trades"></div>
+      </div>
+    </section>
+
+    <!-- ============================================================ MARCHÉS -->
+    <section class="page" id="p-marches" hidden>
+      <div class="grid g-3" id="mkt-cards"></div>
+      <div class="panel">
+        <h2>Prévisions du modèle par actif</h2>
+        <p class="sub">La « force » mesure la conviction du modèle : le gain attendu rapporté à son incertitude. Au-delà de 0,35 (ou en dessous de −0,35), le modèle prend position. Pour la crypto, il ne parie jamais à la baisse. La barre montre la fourchette probable du résultat sur 5 jours.</p>
+        <div class="tbl-wrap" id="tbl-sig"></div>
+      </div>
+      <div class="grid g-2">
+        <div class="panel">
+          <h2>Le modèle prédit-il bien ?</h2>
+          <p class="sub">Le modèle prédit-il bien ? Une valeur au-dessus de 0 veut dire qu'il fait mieux que le hasard ; 0,05 est déjà correct en finance. « Poids ML » indique la confiance accordée à l'intelligence artificielle par rapport aux règles économiques classiques.</p>
+          <div class="tbl-wrap" id="tbl-diag"></div>
+        </div>
+        <div class="panel">
+          <h2>Ce qui pèse le plus dans ses décisions</h2>
+          <p class="sub">Les informations qui pèsent le plus dans les décisions du modèle en ce moment.</p>
+          <div id="imp"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ VOLATILITÉ -->
+    <section class="page" id="p-vol" hidden>
+      <div class="vol-tabs" role="tablist" id="vol-tabs">
+        <button type="button" role="tab" data-a="BTC" id="vt-BTC">Bitcoin</button>
+        <button type="button" role="tab" data-a="ETH" id="vt-ETH">Ether</button>
+        <button type="button" role="tab" data-a="US" id="vt-US">Taux US</button>
+        <button type="button" role="tab" data-a="EA" id="vt-EA">Taux euro</button>
+        <span class="vol-stamp" id="vol-stamp"></span>
+      </div>
+      <div id="vol-crypto">
+        <div class="grid g-kpi" id="vol-kpis"></div>
+        <div class="panel">
+          <div class="section-head"><h2>Surface de volatilité en 3D</h2><span class="vol-hint">Cliquez-glissez pour tourner · molette pour zoomer · survol pour lire les valeurs</span></div>
+          <p class="sub">La hauteur indique l'agitation que le marché anticipe. Vers l'avant : les échéances proches ; vers le fond : les lointaines. À gauche : les scénarios de forte baisse, à droite : de forte hausse. Une surface qui remonte à gauche signifie que le marché paie cher pour se protéger d'une chute. Recalculée chaque seconde à partir des prix réels des options : regardez-la bouger avec le marché.</p>
+          <div class="plot3d" id="vol-3d"></div>
+        </div>
+        <div class="panel">
+          <div class="section-head"><h2>La même surface en tableau</h2>
+            <span class="seg" id="vol-mode"><button type="button" data-m="cm" aria-pressed="true">Maturités constantes</button><button type="button" data-m="exp" aria-pressed="false">Échéances cotées</button></span></div>
+          <p class="sub">Chaque case donne l'agitation attendue (en % par an) pour une échéance (lignes) et un scénario (colonnes) : à gauche, les protections contre une baisse plus ou moins forte ; au centre, le prix actuel (ATM) ; à droite, les paris sur une hausse. Plus la case est foncée, plus le marché anticipe de mouvement. Case grise : aucune option cotée à cet endroit.</p>
+          <div class="tbl-wrap" id="vol-heat"></div>
+          <div class="heat-legend" id="vol-legend"></div>
+        </div>
+        <div class="grid g-2">
+          <div class="panel">
+            <h2>Structure par terme ATM</h2>
+            <p class="sub">Le niveau d'agitation attendu selon l'horizon. Une courbe qui descend veut dire que le marché s'attend à plus de turbulences à court terme qu'à long terme. Le pointillé montre l'agitation réellement observée sur le dernier mois.</p>
+            <div class="chart" id="vol-term"></div>
+            <div class="legend"><span style="--c: var(--s1)">ATM implicite</span><span class="dash" style="--c: var(--s2)">Réalisée 30 j</span></div>
+          </div>
+          <div class="panel">
+            <div class="section-head"><h2>Smile</h2><select id="vol-exp" aria-label="Échéance"></select></div>
+            <p class="sub">Pour une échéance donnée : à quel point le marché redoute un mouvement selon son ampleur. Si la courbe remonte fort à gauche, le marché paie cher pour se protéger d'une chute. Points : prix réels du marché ; courbe : lissage du modèle.</p>
+            <div class="chart" id="vol-smile"></div>
+            <div class="legend"><span style="--c: var(--s1)">SVI</span><span style="--c: var(--s2)">Marché</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Détail par échéance</h2>
+          <p class="sub">« Peur de baisse » (risk reversal) : négatif si les protections contre une chute coûtent plus cher que les paris sur une hausse. « Prix des scénarios extrêmes » (butterfly) : plus il est élevé, plus le marché craint un grand mouvement, dans un sens ou dans l'autre. « Cohérence » : vérifie que les prix ne se contredisent pas.</p>
+          <div class="tbl-wrap" id="vol-slices"></div>
+        </div>
+      </div>
+      <div id="vol-rates" hidden>
+        <div class="panel">
+          <div class="section-head"><h2>Surface de volatilité prévue en 3D</h2><span class="vol-hint">Cliquez-glissez pour tourner · survol pour lire les valeurs</span></div>
+          <p class="sub">Hauteur : de combien les taux devraient bouger sur un an, selon la durée de l'obligation (2 à 30 ans) et l'horizon regardé (1 semaine à 1 an). Une surface qui descend vers les horizons longs veut dire que l'agitation actuelle devrait se calmer.</p>
+          <div class="plot3d" id="vol-rates-3d"></div>
+        </div>
+        <div class="panel">
+          <div class="section-head"><h2>Surface de volatilité prévue (GARCH)</h2>
+            <span class="seg" id="vol-unit"><button type="button" data-u="bp" aria-pressed="true">En points de base / an</button><button type="button" data-u="px" aria-pressed="false">En % du prix</button></span></div>
+          <p class="sub" id="vol-rates-sub">De combien les taux d'intérêt devraient bouger, selon un modèle statistique (GARCH) qui part des mouvements passés : en points de base par an (100 pb = 1 point de pourcentage). Ce n'est pas l'avis du marché des options, dont les données sont payantes pour les obligations. Mis à jour chaque jour.</p>
+          <div class="tbl-wrap" id="vol-rates-heat"></div>
+          <div class="heat-legend" id="vol-rates-legend"></div>
+        </div>
+        <div class="panel">
+          <h2>Paramètres du modèle</h2>
+          <p class="sub">« Persistance » : proche de 1, une période agitée dure longtemps ; proche de 0, le calme revient vite. « Demi-vie » : nombre de jours pour que l'agitation revienne à mi-chemin de son niveau normal.</p>
+          <div class="tbl-wrap" id="vol-rates-params"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ VALIDATION -->
+    <section class="page" id="p-validation" hidden>
+      <div class="panel">
+        <h2>Déploiement progressif</h2>
+        <p class="sub">On confie de l'argent au modèle par paliers : d'abord 0 € (simulation), puis 2 %, 10 %, 35 % et enfin 100 % du capital. On ne passe au palier suivant que si les résultats sont bons ; on recule dès que les pertes dépassent la limite.</p>
+        <div class="steps" id="steps"></div>
+        <div class="tbl-wrap" style="margin-top: 12px" id="tbl-criteria"></div>
+      </div>
+      <div class="grid g-2">
+        <div class="panel">
+          <h2>Portes de validation hors-échantillon</h2>
+          <p class="sub">Les examens que la stratégie doit réussir avant d'être testée en conditions réelles. Ils vérifient surtout que les bons résultats ne sont pas dus à la chance ou à un réglage trop ajusté au passé.</p>
+          <div class="tbl-wrap" id="tbl-gates"></div>
+        </div>
+        <div class="panel">
+          <h2>Forward test</h2>
+          <p class="sub">Test grandeur nature sans argent réel : le modèle prend ses décisions chaque jour sur les vraies données. On vérifie que ses résultats ressemblent à ceux de la simulation.</p>
+          <dl class="kv" id="kv-fwd"></dl>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Robustesse : grille de 27 configurations</h2>
+        <p class="sub">Les 27 variantes de réglages essayées. Si seules quelques-unes marchent, c'est mauvais signe ; si la plupart donnent des résultats proches, la stratégie est robuste. Le ratio de Sharpe mesure le gain par unité de risque (au-dessus de 1, c'est très bon).</p>
+        <div class="tbl-wrap" id="tbl-grid"></div>
+      </div>
+    </section>
+
+    <!-- ============================================================ RISQUES -->
+    <section class="page" id="p-risques" hidden>
+      <div class="panel" id="risk-kill"></div>
+      <div class="grid g-2">
+        <div class="panel" id="risk-trade"></div>
+        <div class="panel" id="risk-daily"></div>
+      </div>
+      <div class="panel" id="risk-sizing"></div>
+      <div class="panel" id="risk-stops"></div>
+    </section>
+
+    <!-- ============================================================ CONTEXTE -->
+    <section class="page" id="p-contexte" hidden>
+      <div class="panel">
+        <div class="section-head"><h2>Préconisations du jour</h2><span id="reco-stamp"></span></div>
+        <p class="sub" id="reco-sub">Mises à jour automatiquement dès qu'une nouvelle donnée officielle paraît. Pour chaque thème : ce que le modèle recommande, à quel point il en est convaincu (score de −1 à +1), et pourquoi, en clair. Ceci n'est pas un conseil en investissement.</p>
+        <div class="tbl-wrap reco" id="tbl-reco"></div>
+      </div>
+      <div class="grid g-2">
+        <div class="panel">
+          <h2>Historique des changements</h2>
+          <p class="sub">Les changements d'avis du modèle, jour après jour.</p>
+          <div class="tbl-wrap" id="tbl-reco-hist"></div>
+        </div>
+        <div class="panel">
+          <h2>Revue qualitative du 27/10/2026</h2>
+          <p class="sub">Mon analyse écrite du 27/10/2026 : elle ajoute le contexte politique et géopolitique que les chiffres ne disent pas. Elle n'est pas mise à jour automatiquement.</p>
+          <div class="tbl-wrap reco" id="tbl-reco-static"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Lexique</h2>
+        <p class="sub">Les mots du site, expliqués simplement.</p>
+        <dl class="glossary">
+          <div><dt>Point de base (pb)</dt><dd>Un centième de pour cent : 100 pb = 1 %. Les taux bougent souvent de quelques pb par jour.</dd></div>
+          <div><dt>Taux à 2 ans / 10 ans</dt><dd>Ce que l'État paie chaque année pour emprunter sur 2 ou 10 ans. Quand le taux monte, le prix des obligations existantes baisse, et inversement.</dd></div>
+          <div><dt>Courbe des taux, pentification</dt><dd>L'écart entre taux longs et taux courts. « Pentification » : l'écart grandit ; « aplatissement » : il se réduit.</dd></div>
+          <div><dt>Capital garanti, plancher</dt><dd>Le montant qu'on s'engage à rendre à l'échéance. Le plancher est ce montant ramené à aujourd'hui ; la valeur du fonds doit rester au-dessus.</dd></div>
+          <div><dt>Coussin</dt><dd>La différence entre la valeur du fonds et le plancher : c'est le seul argent qu'on peut risquer.</dd></div>
+          <div><dt>Stop (limite de perte)</dt><dd>Un ordre de vente automatique déposé chez le courtier : si le prix tombe à ce niveau, la position est vendue.</dd></div>
+          <div><dt>Kill switch</dt><dd>L'arrêt d'urgence : tout est vendu et plus rien n'est acheté si une alarme se déclenche.</dd></div>
+          <div><dt>Volatilité</dt><dd>L'ampleur habituelle des variations de prix sur un an. 40 % veut dire qu'en un an, le prix varie typiquement de ±40 %.</dd></div>
+          <div><dt>Volatilité implicite</dt><dd>La volatilité que le marché anticipe, déduite du prix des options (des assurances contre les mouvements de prix).</dd></div>
+          <div><dt>Option, prix d'exercice (strike)</dt><dd>Le droit d'acheter (call) ou de vendre (put) à un prix fixé à l'avance. Plus le prix d'exercice est loin du prix actuel, plus le scénario est extrême.</dd></div>
+          <div><dt>Delta</dt><dd>Une façon de classer les options : 25Δ put ≈ protection contre une baisse modérée, 10Δ put ≈ contre une chute forte. ATM = au prix actuel.</dd></div>
+          <div><dt>Ratio de Sharpe</dt><dd>Le gain obtenu par unité de risque pris. Au-dessus de 1, c'est très bon ; en dessous de 0, la stratégie perd.</dd></div>
+          <div><dt>Drawdown</dt><dd>La baisse depuis le plus haut atteint. −5 % veut dire que le fonds vaut 5 % de moins que son meilleur niveau.</dd></div>
+          <div><dt>Hors-échantillon</dt><dd>Une période que le modèle n'a jamais vue pendant ses réglages : c'est le vrai test de sa qualité.</dd></div>
+          <div><dt>Régime de stress</dt><dd>La probabilité, estimée par le modèle, que le marché soit en phase de crise. Au-delà de 60 %, il réduit fortement les risques.</dd></div>
+          <div><dt>VaR 99 %</dt><dd>La perte qu'on ne devrait dépasser qu'un jour sur cent.</dd></div>
+        </dl>
+      </div>
+      <div class="grid g-2">
+        <div class="panel">
+          <h2>Faits marquants</h2>
+          <p class="sub" id="ctx-asof"></p>
+          <div class="ctx" id="ctx"></div>
+        </div>
+        <div class="panel">
+          <h2>Calendrier des événements</h2>
+          <p class="sub">Rendez-vous qui peuvent faire bouger les marchés. La veille, le modèle divise ses mises par deux par prudence.</p>
+          <div class="tbl-wrap" id="tbl-cal"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ DONNÉES -->
+    <section class="page" id="p-donnees" hidden>
+      <div class="panel">
+        <h2>Clé d'API FRED</h2>
+        <p class="sub">Depuis 2026, la Fed de Saint-Louis (FRED) refuse les téléchargements automatisés sans clé. Sans clé, les taux US sont repris au Trésor US, à la Fed de New York et au Cboe ; l'inflation, la liquidité de la Fed, le pétrole et la prime de terme restent indisponibles. La clé est gratuite (création de compte en 2 minutes) et reste sur ce PC.</p>
+        <div id="fred-form"></div>
+      </div>
+      <div class="panel">
+        <h2>Diagnostic des sources</h2>
+        <p class="sub">Pour chaque donnée : a-t-elle bien été récupérée, et de quand date-t-elle ?</p>
+        <div class="tbl-wrap" id="tbl-diag-src"></div>
+      </div>
+      <div class="panel">
+        <h2>Sources et qualité des données</h2>
+        <p class="sub">Toutes les données viennent d'organismes officiels (Fed, BCE, Trésor américain…) ou des plateformes elles-mêmes, sur 10 ans au plus. Le modèle n'utilise une donnée qu'à partir du jour où elle a réellement été publiée, pour ne jamais « tricher » avec le futur.</p>
+        <div class="tbl-wrap" id="tbl-src"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const PAGES = {direct: "Direct", vol: "Surfaces de volatilité", apercu: "Vue d'ensemble", positions: "Positions et trades", marches: "Marchés et signaux",
+    validation: "Validation et déploiement", risques: "Gestion des risques", contexte: "Préconisations et contexte macro", donnees: "Données"};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  const isNum = (x) => typeof x === "number" && isFinite(x);
+  const pct = (x, d = 1) => isNum(x) ? (x * 100).toFixed(d).replace(".", ",") + " %" : "—";
+  const spct = (x, d = 1) => isNum(x) ? (x > 0 ? "+" : "") + pct(x, d) : "—";
+  const num = (x, d = 2) => isNum(x) ? x.toFixed(d).replace(".", ",") : "—";
+  const money = (x) => isNum(x) ? (Math.abs(x) >= 1e6 ? (x / 1e6).toFixed(2).replace(".", ",") + " M$" : Math.round(x).toLocaleString("fr-FR") + " $") : "—";
+  const cls = (x) => !isNum(x) ? "" : x > 0 ? "pos" : x < 0 ? "neg" : "";
+  const chip = (ok, yes = "OK", no = "Alerte") => `<span class="chip ${ok ? "good" : "crit"}">${ok ? "✓ " + yes : "✕ " + no}</span>`;
+  const table = (heads, rows) => rows.length ? `<table><thead><tr>${heads.map((h) => `<th class="${h.n ? "n" : ""}">${esc(h.t ?? h)}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => `<td class="${heads[i].n ? "n" : ""}">${c}</td>`).join("")}</tr>`).join("")}</tbody></table>` : `<p class="empty">Aucune donnée pour l'instant.</p>`;
+  const H = (t, n = false) => ({t, n});
+  const REASONS = {stop_loss: "Stop matériel", take_profit: "Objectif atteint", trailing_stop: "Stop suiveur", signal_reversal: "Inversion du signal",
+    time_stop: "Stop temporel", regime_stress: "Régime de stress", kill_switch: "Kill switch", cppi_floor: "Plancher CPPI"};
+
+  let S = window.__QG_STATE__ || null, LIVE = null, CTX = null;
+  const SERVED = !window.__QG_STATE__ && location.protocol.startsWith("http");
+  const STATIC = !!window.QG_STATIC;   // édition Vercel : pas de serveur, état publié chaque soir + direct calculé dans le navigateur
+
+  // ---------------------------------------------------------------- graphiques SVG
+  function lineChart(el, series, opts = {}) {
+    const W = el.clientWidth || 800, Hh = opts.height || 280, m = {l: 64, r: 12, t: 10, b: 26};
+    const xs = series[0].x; if (!xs || xs.length < 2) { el.innerHTML = `<p class="empty">Historique insuffisant.</p>`; return; }
+    const t = xs.map((d) => Date.parse(d));
+    const vals = series.flatMap((s) => s.y.filter(isNum));
+    let lo = Math.min(...vals), hi = Math.max(...vals); const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
+    const X = (v) => m.l + (v - t[0]) / (t[t.length - 1] - t[0]) * (W - m.l - m.r);
+    const Y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * (Hh - m.t - m.b);
+    const ticks = 4, fmt = opts.fmt || ((v) => (v / 1e6).toFixed(0) + " M");
+    let g = "";
+    for (let i = 0; i <= ticks; i++) { const v = lo + (hi - lo) * i / ticks; g += `<line class="grid-l" x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${m.l - 8}" y="${Y(v) + 4}" text-anchor="end">${fmt(v)}</text>`; }
+    const y0 = new Date(t[0]).getFullYear(), y1 = new Date(t[t.length - 1]).getFullYear();
+    const stepY = Math.max(1, Math.ceil((y1 - y0 + 1) / Math.max(2, Math.floor(W / 90))));
+    for (let y = y0 + 1; y <= y1; y += stepY) { const xx = X(Date.UTC(y, 0, 1)); if (xx > m.l && xx < W - m.r) g += `<text class="axis" x="${xx}" y="${Hh - 6}" text-anchor="middle">${y}</text>`; }
+    if (opts.vline) { const xv = X(Date.parse(opts.vline)); if (xv > m.l && xv < W - m.r) g += `<line x1="${xv}" x2="${xv}" y1="${m.t}" y2="${Hh - m.b}" stroke="var(--muted)" stroke-dasharray="3 3"/><text class="axis" x="${xv + 4}" y="${m.t + 10}">hors-échantillon</text>`; }
+    const paths = series.map((s) => { let d = "", pen = false; s.y.forEach((v, i) => { if (isNum(v)) { d += (pen ? "L" : "M") + X(t[i]).toFixed(1) + " " + Y(v).toFixed(1); pen = true; } else pen = false; });
+      return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" ${s.dash ? 'stroke-dasharray="5 4"' : ""} stroke-linejoin="round"/>`; }).join("");
+    const last = series[0].y.length - 1;
+    const end = isNum(series[0].y[last]) ? `<circle cx="${X(t[last])}" cy="${Y(series[0].y[last])}" r="4" fill="${series[0].color}" stroke="var(--surface)" stroke-width="2"/>` : "";
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${esc(opts.label || "graphique")}">${g}${paths}${end}<line class="cross" x1="0" x2="0" y1="${m.t}" y2="${Hh - m.b}" stroke="var(--line-strong)" visibility="hidden"/><rect x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${Hh - m.t - m.b}" fill="transparent"/></svg><div class="tip" hidden></div>`;
+    const svg = el.querySelector("svg"), tip = el.querySelector(".tip"), cross = el.querySelector(".cross");
+    svg.addEventListener("pointermove", (e) => {
+      const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * W / r.width;
+      const tv = t[0] + (px - m.l) / (W - m.l - m.r) * (t[t.length - 1] - t[0]);
+      let i = 0, best = Infinity; t.forEach((v, k) => { const d = Math.abs(v - tv); if (d < best) { best = d; i = k; } });
+      cross.setAttribute("x1", X(t[i])); cross.setAttribute("x2", X(t[i])); cross.setAttribute("visibility", "visible");
+      tip.hidden = false; tip.innerHTML = `<b>${xs[i]}</b><br>` + series.map((s) => `${esc(s.name)} : <span class="num">${(opts.tipfmt || money)(s.y[i])}</span>`).join("<br>");
+      const left = (X(t[i]) / W) * r.width; tip.style.left = Math.min(left + 12, r.width - tip.offsetWidth - 4) + "px"; tip.style.top = "8px";
+    });
+    svg.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+  }
+
+  function barChart(el, xs, ys, opts = {}) {
+    const W = el.clientWidth || 600, Hh = opts.height || 200, m = {l: 52, r: 8, t: 8, b: 22};
+    if (!ys.length) { el.innerHTML = `<p class="empty">Aucune donnée.</p>`; return; }
+    const lines = opts.lines || [];
+    const lo = Math.min(0, ...ys, ...lines.map((l) => l.v)), hi = Math.max(0, ...ys, ...lines.map((l) => l.v));
+    const Y = (v) => m.t + (1 - (v - lo) / ((hi - lo) || 1)) * (Hh - m.t - m.b);
+    const bw = (W - m.l - m.r) / ys.length, gap = bw > 6 ? 2 : bw > 3 ? 1 : 0;
+    let g = "";
+    [lo, (lo + hi) / 2, hi].forEach((v) => g += `<line class="grid-l" x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${m.l - 6}" y="${Y(v) + 4}" text-anchor="end">${(opts.fmt || pct)(v)}</text>`);
+    const bars = ys.map((v, i) => { const y = Math.min(Y(v), Y(0)), h = Math.max(1, Math.abs(Y(v) - Y(0)));
+      const c = opts.color ? opts.color(v, i) : (v >= 0 ? "var(--s1)" : "var(--s2)");
+      return `<rect x="${(m.l + i * bw + gap / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(0.6, bw - gap).toFixed(1)}" height="${h.toFixed(1)}" rx="${bw > 8 ? 2 : 0}" fill="${c}" data-i="${i}"/>`; }).join("");
+    const ls = lines.map((l) => `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(l.v)}" y2="${Y(l.v)}" stroke="var(--crit)" stroke-dasharray="4 3"/><text class="axis" x="${W - m.r}" y="${Y(l.v) - 4}" text-anchor="end">${esc(l.label)}</text>`).join("");
+    const xl = opts.xlabels ? opts.xlabels.map((s, i) => s ? `<text class="axis" x="${m.l + (i + 0.5) * bw}" y="${Hh - 6}" text-anchor="middle">${esc(s)}</text>` : "").join("") : "";
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${esc(opts.label || "histogramme")}">${g}<line class="base" x1="${m.l}" x2="${W - m.r}" y1="${Y(0)}" y2="${Y(0)}"/>${bars}${ls}${xl}</svg><div class="tip" hidden></div>`;
+    const svg = el.querySelector("svg"), tip = el.querySelector(".tip");
+    svg.addEventListener("pointermove", (e) => { const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * W / r.width; const i = Math.floor((px - m.l) / bw);
+      if (i < 0 || i >= ys.length) { tip.hidden = true; return; } tip.hidden = false; tip.innerHTML = `<b>${esc(xs[i])}</b> : <span class="num">${(opts.tipfmt || pct)(ys[i])}</span>`;
+      tip.style.left = Math.min((e.clientX - r.left) + 12, r.width - tip.offsetWidth - 4) + "px"; tip.style.top = "6px"; });
+    svg.addEventListener("pointerleave", () => tip.hidden = true);
+  }
+
+  function spark(vals, color = "var(--s1)") {
+    const v = (vals || []).filter(isNum); if (v.length < 2) return "";
+    const W = 220, Hh = 44, lo = Math.min(...v), hi = Math.max(...v);
+    const pts = v.map((y, i) => [i / (v.length - 1) * W, 4 + (1 - (y - lo) / ((hi - lo) || 1)) * (Hh - 8)]);
+    const d = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join("");
+    const last = pts[pts.length - 1];
+    return `<svg viewBox="0 0 ${W} ${Hh}" preserveAspectRatio="none" style="width:100%;height:44px" aria-hidden="true"><path d="${d} L${W} ${Hh} L0 ${Hh}Z" fill="${color}" opacity=".10"/><path d="${d}" fill="none" stroke="${color}" stroke-width="1.6"/><circle cx="${last[0]}" cy="${last[1]}" r="3" fill="${color}"/></svg>`;
+  }
+
+  function rangeBar(lo, mid, hi, scale) {
+    if (![lo, mid, hi].every(isNum)) return "—";
+    const P = (v) => Math.max(0, Math.min(100, 50 + v / scale * 50));
+    return `<div class="range" title="${spct(lo)} … ${spct(hi)}"><div class="axisline"></div><div class="zero" style="left:50%"></div><div class="band" style="left:${P(lo)}%;width:${P(hi) - P(lo)}%"></div><div class="pt" style="left:${P(mid)}%"></div></div>`;
+  }
+  const meter = (x, limit) => { const r = isNum(x) && limit ? Math.min(1, Math.abs(x) / limit) : 0; return `<div class="meter"><b class="${r >= 1 ? "crit" : r >= 0.8 ? "warn" : ""}" style="width:${(r * 100).toFixed(0)}%"></b></div>`; };
+
+  // ---------------------------------------------------------------- rendu des pages
+  function renderHeader() {
+    const mode = S.data_mode, pm = $("pill-mode");
+    pm.className = "pill " + (mode === "official" ? "good" : "crit");
+    pm.lastElementChild.textContent = mode === "official" ? "Sources officielles" : "Données de test";
+    const dep = S.deployment;
+    $("pill-stage").className = "pill " + (dep ? "good" : "");
+    $("pill-stage").lastElementChild.textContent = dep ? `Étape ${dep.stage} · ${pct(dep.capital_fraction, 0)} du capital` : "Forward test non démarré";
+    const ks = S.risk.kill_switch, pk = $("pill-kill");
+    pk.className = "pill " + (ks.triggered ? "crit" : "good");
+    pk.lastElementChild.textContent = ks.triggered ? "Kill switch déclenché" : "Kill switch armé";
+    $("nav-kill").classList.toggle("on", !!ks.triggered);
+    $("foot-gen").textContent = "État publié : " + (S.generated_at || "—").replace("T", " ").slice(0, 16) + " UTC";
+    $("banner").innerHTML = mode === "official" ? "" :
+      `<div class="banner"><b>Données synthétiques de test.</b> Cet état a été produit sur des séries simulées pour vérifier la chaîne de traitement. Aucun chiffre de performance affiché ici ne décrit la stratégie. Autorisez les sources officielles puis lancez <span class="mono">python -m quantguard.pipeline all</span>.</div>`;
+  }
+
+  // signaux : crypto recalculée au prix courant (nowcast du moteur temps réel), taux à la dernière clôture
+  function liveSignals() {
+    const A = (LIVE && LIVE.assets) || {};
+    return (S.portfolio.signals || []).map((s) => { const n = A[s.asset] && A[s.asset].nowcast;
+      return n ? Object.assign({}, s, {strength: n.strength, exp_ret_h: n.exp_ret_h, lo_h: n.lo_h, hi_h: n.hi_h, live: true}) : s; });
+  }
+  const LIVE_TAG = '<span class="live-tag">● direct</span>';
+  function stampTag(live) { return live ? LIVE_TAG : `<span class="close-tag">clôture ${esc((S.markets.find((m) => m.key === "DGS10") || {}).date || "")}</span>`; }
+
+  function renderOverviewKPIs() {
+    const p = S.portfolio, oos = S.performance.backtest.oos || {}, cap = S.config.capital, LP = LIVE && LIVE.portfolio;
+    const nav = LP ? LP.nav_live : p.nav, cushion = LP ? LP.cushion : p.cushion;
+    const k = [
+      ["Valeur du fonds", money(nav), `${stampTag(!!LP)} ${spct(nav / cap - 1)} depuis le départ`],
+      ["Gain ou perte du jour", LP ? `<span class="${cls(LP.day_pnl)}">${spct(LP.day_pnl, 3)}</span>` : "—", `${stampTag(!!LP)} depuis la dernière clôture`],
+      ["Capital protégé (plancher)", money(LP ? LP.floor : p.floor), `${money(p.guaranteed)} garantis à ${S.config.horizon_years} ans`],
+      ["Marge de risque (coussin)", money(cushion), `${stampTag(!!LP)} ${pct(cushion / nav)} du fonds`],
+      ["Baisse depuis le plus haut", LP ? pct(LP.drawdown, 2) : "—", `${stampTag(!!LP)} alarme à −${pct(S.risk.kill_switch.checks.drawdown ? -S.risk.kill_switch.checks.drawdown.limit : 0.08, 0)}`],
+      ["Qualité du rendement (Sharpe)", num(oos.sharpe), "sur la période de vérification ; > 1 = très bon"],
+      ["Part du fonds investie", pct(LP ? LP.gross_live : p.gross, 0), `${stampTag(!!LP)} dont crypto ${pct(LP ? LP.crypto_live : p.crypto)}`],
+      ["Risque de crise", pct(p.p_stress, 0), "probabilité estimée par le modèle (clôture)"],
+    ];
+    $("kpis").innerHTML = k.map(([l, v, n]) => `<div class="kpi"><span class="lbl">${esc(l)}</span><span class="val num">${v}</span><span class="note">${n}</span></div>`).join("");
+    const sig = liveSignals().sort((a, b) => Math.abs(b.strength) - Math.abs(a.strength));
+    $("tbl-sig-mini").innerHTML = table([H("Actif"), H("Conviction", true), H("Gain attendu 5 j", true), H("Fourchette probable")],
+      sig.map((s) => [esc(s.asset) + " " + stampTag(!!s.live), `<span class="num ${cls(s.strength)}">${num(s.strength)}</span>`, `<span class="num">${spct(s.exp_ret_h, 2)}</span>`, rangeBar(s.lo_h, s.exp_ret_h, s.hi_h, s.kind === "crypto" ? 0.3 : 0.05)]));
+  }
+
+  function renderOverview() {
+    const p = S.portfolio, oos = S.performance.backtest.oos || {}, fw = S.performance.forward || {};
+    renderOverviewKPIs();
+    const bt = S.performance.bt_series, fs = S.performance.fwd_series;
+    const series = [{name: "VL", x: bt.dates, y: bt.nav, color: "var(--s1)"}, {name: "Plancher", x: bt.dates, y: bt.floor, color: "var(--s2)"}, {name: "Garanti", x: bt.dates, y: bt.guaranteed, color: "var(--muted)", dash: true}];
+    if (fs && fs.dates && fs.dates.length > 1) { series[0].x = bt.dates.concat(fs.dates); ["nav", "floor"].forEach((c, j) => series[j].y = bt[c].concat(fs[c])); series[2].y = bt.guaranteed.concat(fs.dates.map(() => null)); }
+    lineChart($("ch-nav"), series, {vline: S.config.oos_start, label: "VL et plancher"});
+    const d = S.performance.backtest.dev || {};
+    const rows = [["Rendement annualisé", "cagr", pct], ["Volatilité", "vol_annual", pct], ["Sharpe", "sharpe", num], ["Sortino", "sortino", num],
+      ["Drawdown max", "max_drawdown", pct], ["Calmar", "calmar", num], ["VaR 99 % 1 j", "var99_1d", (x) => pct(x, 2)], ["ES 97,5 % 1 j", "es975_1d", (x) => pct(x, 2)],
+      ["Taux de réussite", "hit_rate", pct], ["Profit factor", "profit_factor", num], ["Trades", "n_trades", (x) => isNum(x) ? x : "—"], ["PSR", "psr", (x) => pct(x, 0)]];
+    $("tbl-devoos").innerHTML = table([H("Métrique"), H("Développement", true), H("Hors-échantillon", true), H("Forward", true)],
+      rows.map(([l, kk, f]) => [esc(l), `<span class="num">${f(d[kk])}</span>`, `<span class="num">${f(oos[kk])}</span>`, `<span class="num">${f(fw[kk])}</span>`]));
+  }
+
+  function renderPositions() {
+    const pos = S.portfolio.positions || [], marks = Object.fromEntries(((LIVE && LIVE.portfolio && LIVE.portfolio.marks) || []).filter((m) => m.kind === "crypto").map((m) => [m.asset, m]));
+    $("tbl-pos").innerHTML = table([H("Actif"), H("Sens"), H("Notionnel", true), H("Poids", true), H("Entrée"), H("Jours", true), H("Rendement", true), H("Stop", true), H("Objectif", true), H("Distance au stop", true), H("Contrainte de taille")],
+      pos.map((q) => { const mk = marks[q.asset], ret = mk ? mk.ret : q.ret, dist = mk ? mk.distance_to_stop : ret - q.stop;
+        return [`<b>${esc(q.asset)}</b>${mk ? ' <span class="chip good">direct</span>' : ""}`, `<span class="chip ${q.side === "LONG" ? "long" : ""}">${q.side === "LONG" ? "Long" : "Short"}</span>`, `<span class="num">${money(q.notional)}</span>`, `<span class="num">${pct(q.weight)}</span>`, esc(q.entry_date), `<span class="num">${q.days}</span>`,
+          `<span class="num ${cls(ret)}">${spct(ret, 2)}</span>`, `<span class="num">${pct(q.stop, 2)}</span>`, `<span class="num">${spct(q.tp, 2)}</span>`, `<span class="num">${pct(dist, 2)}</span>`, esc({risk_per_trade: "Risque par trade", kelly: "Kelly fractionnaire", position_cap: "Plafond de position"}[q.binding] || q.binding || "—")]; }));
+    const tr = S.trades || [];
+    const bins = Array.from({length: 26}, (_, i) => -0.325 + i * 0.025), counts = new Array(bins.length).fill(0);
+    tr.forEach((t) => { const i = Math.max(0, Math.min(bins.length - 1, Math.floor((t.ret + 0.325) / 0.025))); counts[i]++; });
+    const lbl = bins.map((b) => (b + 0.0125)), xl = lbl.map((b) => Math.abs(b + 0.3) < 0.013 ? "−30 %" : Math.abs(b) < 0.013 ? "0" : Math.abs(b - 0.3) < 0.013 ? "+30 %" : "");
+    barChart($("ch-hist"), lbl.map((b) => `${spct(b - 0.0125, 1)} à ${spct(b + 0.0125, 1)}`), counts, {fmt: (v) => Math.round(v), tipfmt: (v) => v + " trades", xlabels: xl, color: (v, i) => Math.abs(lbl[i]) > 0.3 ? "var(--crit)" : lbl[i] >= 0 ? "var(--s1)" : "var(--s2)", label: "distribution des trades"});
+    const o = S.performance.backtest.oos || {};
+    $("kv-trades").innerHTML = [["Trades clôturés", isNum(o.n_trades) ? o.n_trades : "—"], ["Taux de réussite", pct(o.hit_rate)], ["Gain moyen", spct(o.avg_win, 2)], ["Perte moyenne", spct(o.avg_loss, 2)],
+      ["Profit factor", num(o.profit_factor)], ["Pire trade", spct(o.trade_ret_min, 2)], ["Meilleur trade", spct(o.trade_ret_max, 2)], ["Trades dans [−30 %, +30 %]", pct(o.pct_trades_in_bounds, 1)],
+      ["Durée moyenne", isNum(o.avg_holding_days) ? num(o.avg_holding_days, 1) + " j" : "—"], ["Rotation annuelle", isNum(o.turnover_annual) ? num(o.turnover_annual, 1) + "×" : "—"]]
+      .map(([a, b]) => `<dt>${esc(a)}</dt><dd>${b}</dd>`).join("");
+    $("tbl-trades").innerHTML = table([H("Actif"), H("Sens"), H("Entrée"), H("Sortie"), H("Jours", true), H("Rendement", true), H("P&L", true), H("Règle de sortie")],
+      tr.map((t) => [esc(t.asset), t.side > 0 ? "Long" : "Short", esc(t.entry_date), esc(t.exit_date), `<span class="num">${t.days}</span>`, `<span class="num ${cls(t.ret)}">${spct(t.ret, 2)}</span>`, `<span class="num ${cls(t.pnl)}">${money(t.pnl)}</span>`, `<span class="chip">${esc(REASONS[t.reason] || t.reason)}</span>`]));
+  }
+
+  function renderMarkets() {
+    const live = (LIVE && LIVE.assets) || {};
+    $("mkt-cards").innerHTML = (S.markets || []).map((m) => {
+      const lp = live[m.key] && live[m.key].price, last = lp || m.last;
+      const val = m.unit === "$" ? money(last).replace(" $", "") + " $" : m.unit === "%" ? num(last, 2) + " %" : num(last, 2);
+      const c1 = m.pct ? spct(lp ? lp / m.last - 1 : m.chg_1d, 2) + (lp ? " (vs clôture)" : "") : isNum(m.chg_1d) ? (m.chg_1d > 0 ? "+" : "") + num(m.chg_1d * (m.unit === "%" ? 100 : 1), m.unit === "%" ? 0 : 2) + (m.unit === "%" ? " pb" : "") : "—";
+      const cm = m.pct ? spct(m.chg_1m, 1) : isNum(m.chg_1m) ? (m.chg_1m > 0 ? "+" : "") + num(m.chg_1m * (m.unit === "%" ? 100 : 1), m.unit === "%" ? 0 : 2) + (m.unit === "%" ? " pb" : "") : "—";
+      return `<div class="panel" style="display:grid;gap:4px"><div style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600">${esc(m.label)}</span>${lp ? '<span class="chip good">direct</span>' : `<span class="chip">${esc(m.date)}</span>`}</div>
+        <div class="num" style="font:600 22px var(--f-display)">${val}</div><div class="num" style="font-size:12px;color:var(--ink-2)">1 j ${c1} · 1 m ${cm}</div>${spark(m.spark)}<div style="font-size:11.5px;color:var(--muted)">${esc(m.publisher)}</div></div>`; }).join("") || `<p class="empty">Aucune série chargée.</p>`;
+    const sig = liveSignals();
+    $("tbl-sig").innerHTML = table([H("Actif"), H("Type"), H("Conviction", true), H("Gain attendu 5 j", true), H("Fourchette probable"), H("Agitation annuelle", true), H("Limite de perte", true), H("Objectif", true), H("Fiabilité de la fourchette", true), H("Décision")],
+      sig.map((s) => { const go = Math.abs(s.strength) >= 0.35 && !(s.kind === "crypto" && s.strength < 0);
+        return [`<b>${esc(s.asset)}</b> ${stampTag(!!s.live)}`, s.kind === "crypto" ? "Crypto" : "Taux", `<span class="num ${cls(s.strength)}">${num(s.strength)}</span>`, `<span class="num">${spct(s.exp_ret_h, 2)}</span>`, rangeBar(s.lo_h, s.exp_ret_h, s.hi_h, s.kind === "crypto" ? 0.3 : 0.05),
+          `<span class="num">${pct(s.vol_annual)}</span>`, `<span class="num">${pct(s.stop, 2)}</span>`, `<span class="num">${spct(s.tp, 2)}</span>`, `<span class="num">${pct(s.coverage)}</span>`,
+          go ? `<span class="chip ${s.strength > 0 ? "long" : ""}">${s.strength > 0 ? "Acheter" : "Vendre"}</span>` : `<span class="chip">Attendre</span>`]; }));
+    const diag = S.model.diagnostics || {}, rows = [];
+    Object.entries(diag).forEach(([k, arr]) => arr.slice(-6).forEach((d) => rows.push([k === "crypto" ? "Crypto" : "Taux", esc(d.date), `<span class="num">${num(d.ic_gbm, 3)}</span>`, `<span class="num">${num(d.ic_ridge, 3)}</span>`, `<span class="num">${num(d.ic_prior, 3)}</span>`, `<span class="num">${pct(d.w_ml, 0)}</span>`])));
+    $("tbl-diag").innerHTML = table([H("Classe"), H("Réentraînement"), H("IC boosting", true), H("IC ridge", true), H("IC a priori", true), H("Poids ML", true)], rows);
+    const imp = S.model.importance || {};
+    $("imp").innerHTML = Object.entries(imp).map(([k, o]) => `<p style="margin:8px 0 4px;font-weight:600">${k === "crypto" ? "Crypto" : "Taux"}</p>` + Object.entries(o).slice(0, 8).map(([f, w]) => `<div style="display:grid;grid-template-columns:minmax(0,170px) minmax(0,1fr) 52px;gap:8px;align-items:center;font-size:12.5px;margin:3px 0"><span class="mono" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f)}</span>${meter(w, Math.max(...Object.values(o)))}<span class="num" style="text-align:right">${pct(w)}</span></div>`).join("")).join("") || `<p class="empty">—</p>`;
+  }
+
+  function renderValidation() {
+    const dep = S.deployment, stages = dep ? dep.stages : [{name: "paper"}, {name: "pilot"}, {name: "ramp-1"}, {name: "ramp-2"}, {name: "full"}];
+    const LBL = {paper: "Paper", pilot: "Pilote", "ramp-1": "Montée 1", "ramp-2": "Montée 2", full: "Plein régime"};
+    $("steps").innerHTML = stages.map((s, i) => `<div class="step ${dep && i < dep.stage_index ? "done" : ""} ${dep && i === dep.stage_index ? "cur" : ""}"><b>${LBL[s.name] || s.name}</b><span class="num">${isNum(s.capital_fraction) ? pct(s.capital_fraction, 0) + " du capital" : ""}</span><span>${isNum(s.min_days) && s.min_days ? "≥ " + s.min_days + " séances" : ""}</span></div>`).join("");
+    const C = dep ? dep.criteria : {}, CL = {min_days: "Durée dans l'étape", sharpe: "Sharpe live", max_dd: "Drawdown de l'étape", no_kill_switch: "Aucun kill switch", conformal_coverage: "Couverture conforme"};
+    $("tbl-criteria").innerHTML = dep ? table([H("Critère de promotion"), H("Valeur", true), H("Seuil", true), H("Statut")],
+      Object.entries(C).map(([k, c]) => [esc(CL[k] || k), `<span class="num">${k === "max_dd" ? pct(c.value) : k === "conformal_coverage" ? pct(c.value) : isNum(c.value) ? num(c.value, k === "sharpe" ? 2 : 0) : esc(c.value ?? "—")}</span>`, `<span class="num">${k === "max_dd" ? pct(c.target) : esc(c.target)}</span>`, chip(c.ok, "Rempli", "Non rempli")])) : `<p class="empty">Le forward test démarre après la validation hors-échantillon.</p>`;
+    const v = S.validation, G = v.gates || {};
+    const GL = {dsr: ["Deflated Sharpe Ratio ≥ 0,95", num(v.dsr)], pbo: ["Probabilité de surapprentissage ≤ 20 %", pct(v.pbo && v.pbo.pbo, 0)], oos_sharpe_positive: ["Sharpe hors-échantillon > 0", num((S.performance.backtest.oos || {}).sharpe)],
+      floor_never_breached: ["VL toujours au-dessus du plancher", ""], pnl_in_bounds: ["≥ 99 % des trades dans [−30 %, +30 %]", pct((S.performance.backtest.oos || {}).pct_trades_in_bounds)]};
+    $("tbl-gates").innerHTML = table([H("Porte"), H("Valeur", true), H("Statut")], Object.entries(G).map(([k, ok]) => [esc((GL[k] || [k])[0]), `<span class="num">${(GL[k] || [, ""])[1]}</span>`, ok === null || ok === undefined ? '<span class="chip warn">… En cours</span>' : chip(ok, "Passée", "Échec")]))
+      + `<p style="margin:10px 0 0">${v.pending ? '<span class="chip warn">… Validation complète en cours (étape 4 sur 4)</span>' : v.go_forward ? '<span class="chip good">✓ Feu vert pour le forward test</span>' : '<span class="chip crit">✕ Forward test bloqué tant qu\'une porte échoue</span>'}</p>`;
+    const kf = v.kfold_ic || {};
+    const fm = S.forward_meta || {}, fw = S.performance.forward || {};
+    const ks = S.risk.kill_switch.checks.live_vs_backtest;
+    $("kv-fwd").innerHTML = [["Début du forward test", esc(fm.forward_start || "—")], ["Dernière exécution", esc((fm.last_run || "—").replace("T", " ").slice(0, 16))], ["Séances", S.performance.fwd_series ? S.performance.fwd_series.dates.length : 0],
+      ["Rendement", spct(fw.total_return, 2)], ["Sharpe", num(fw.sharpe)], ["Drawdown max", pct(fw.max_drawdown)], ["p-valeur KS live / backtest", ks ? num(ks.value, 3) : "en attente de 20 séances"],
+      ["IC k-fold purgé (taux)", (kf.rates || []).map((x) => num(x, 2)).join(" · ") || "—"], ["IC k-fold purgé (crypto)", (kf.crypto || []).map((x) => num(x, 2)).join(" · ") || "—"]].map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("");
+    $("tbl-grid").innerHTML = table([H("Seuil d'entrée", true), H("Risque par trade", true), H("Stop (ATR)", true), H("Sharpe dév.", true), H("Sharpe HE", true), H("Drawdown max", true)],
+      (v.grid || []).map((g) => [`<span class="num">${num(g.entry_threshold)}</span>`, `<span class="num">${pct(g.risk_per_trade, 2)}</span>`, `<span class="num">${num(g.hard_stop_atr, 1)}</span>`, `<span class="num ${cls(g.sharpe_dev)}">${num(g.sharpe_dev)}</span>`, `<span class="num ${cls(g.sharpe_oos)}">${num(g.sharpe_oos)}</span>`, `<span class="num">${pct(g.max_dd)}</span>`]));
+  }
+
+  function liveRisk() {
+    // risque recalculé au prix courant (moteur temps réel) quand il est disponible, sinon état de la dernière clôture
+    const R = JSON.parse(JSON.stringify(S.risk)), LP = LIVE && LIVE.portfolio;
+    if (!LP) return R;
+    R.kill_switch.checks = Object.assign({}, R.kill_switch.checks, LP.kill.checks);
+    R.kill_switch.triggered = Object.values(R.kill_switch.checks).some((c) => c.breach);
+    R.kill_switch.reasons = Object.entries(R.kill_switch.checks).filter(([, c]) => c.breach).map(([k]) => k);
+    R.per_trade.positions = LP.position_risk || R.per_trade.positions;
+    R.per_trade.max_used = Math.max(0, ...(R.per_trade.positions || []).map((x) => x.risk));
+    R.daily.today_pnl = LP.day_pnl; R.daily.locked = LP.risk_lock;
+    Object.assign(R.sizing, {nav: LP.nav_live, floor: LP.floor, cushion: LP.cushion});
+    const mk = Object.fromEntries((LP.marks || []).map((m) => [m.asset, m]));
+    R.hard_stops = (R.hard_stops || []).map((h) => mk[h.asset] ? Object.assign(h, {ret: mk[h.asset].ret, distance: mk[h.asset].distance_to_stop}) : h);
+    R.live = true;
+    return R;
+  }
+
+  function renderRisk() {
+    const R = liveRisk(), ks = R.kill_switch;
+    const KL = {drawdown: ["Baisse depuis le plus haut", pct], cushion_ratio: ["Marge de risque restante", pct], daily_loss: ["Perte de la journée", (x) => pct(x, 2)],
+      feed_staleness: ["Prix crypto non reçus depuis", (x) => isNum(x) ? num(x, 1) + " s" : "—"], xvenue_gap: ["Écart de prix entre plateformes", (x) => pct(x, 3)],
+      changepoint: ["Changement brutal du marché (probabilité)", pct], data_staleness: ["Retard des données officielles", (x) => num(x, 0) + " h"], live_vs_backtest: ["Ressemblance réel / simulation (p-valeur)", (x) => num(x, 3)]};
+    const liveTag = R.live ? ' <span class="chip good">● en direct</span>' : "";
+    $("risk-kill").innerHTML = `<div class="section-head"><span class="idx">5</span><h2>Arrêt d'urgence (kill switch)</h2>${liveTag}${ks.triggered ? '<span class="chip crit">✕ Déclenché : ' + esc(ks.reasons.map((r) => (KL[r] || [r])[0]).join(", ")) + "</span>" : '<span class="chip good">✓ Prêt, aucune alarme</span>'}</div>
+      <p class="sub">Le bouton d'arrêt d'urgence : dès qu'une seule de ces alarmes se déclenche, toutes les positions sont fermées et plus aucun achat n'est fait${ks.halted_until ? " jusqu'au " + esc(ks.halted_until) : ""}. Pour redémarrer, deux personnes doivent valider après analyse.</p>
+      <div class="tbl-wrap">${table([H("Condition"), H("Valeur", true), H("Seuil", true), H("Utilisation"), H("Statut")], Object.entries(ks.checks || {}).map(([k, c]) => {
+        const f = (KL[k] || [k, (x) => num(x, 3)])[1]; const use = k === "cushion_ratio" ? (c.value > 0 ? c.limit / c.value : 1) : k === "live_vs_backtest" ? (c.value > 0 ? c.limit / c.value : 0) : isNum(c.value) && c.limit ? c.value / c.limit : 0;
+        return [esc((KL[k] || [k])[0]), `<span class="num">${f(c.value)}</span>`, `<span class="num">${f(c.limit)}</span>`, `<div style="min-width:90px">${meter(use, 1)}</div>`, chip(!c.breach, "OK", "Atteint")]; }))}</div>
+      <ol class="procedure" style="margin-top:12px"><li>Les ordres en attente sont annulés et plus aucun ordre n'est envoyé.</li><li>Toutes les positions sont vendues progressivement (30 minutes pour les taux, immédiatement pour la crypto).</li><li>Les responsables sont prévenus par SMS et e-mail, avec un rapport automatique.</li><li>Analyse sous 24 h. Redémarrage manuel seulement, avec des mises divisées par deux pendant 2 semaines.</li></ol>
+      ${(ks.events || []).length ? `<p class="sub" style="margin-top:12px">Historique : ${(ks.events || []).slice(-8).map((e) => esc(e.date) + " (" + esc(e.reasons.join(", ")) + ")").join(" · ")}</p>` : ""}`;
+
+    const pt = R.per_trade;
+    $("risk-trade").innerHTML = `<div class="section-head"><span class="idx">1</span><h2>Risque par trade</h2></div>
+      <p class="sub">Sur une seule position, on n'accepte jamais de perdre plus de ${pct(pt.limit, 2)} du capital total si la limite de perte est touchée. Chaque position est aussi contenue entre ${pct(pt.bounds[0], 0)} et +${pct(pt.bounds[1], 0)} de sa propre valeur.</p>
+      ${table([H("Position"), H("Risque jusqu'au stop", true), H("Utilisation de la limite")], (pt.positions || []).map((q) => [esc(q.asset), `<span class="num">${pct(q.risk, 3)}</span>`, `<div style="min-width:120px">${meter(q.risk, pt.limit)}</div>`]))}
+      <dl class="kv" style="margin-top:10px"><dt>Risque max utilisé</dt><dd>${pct(pt.max_used, 3)}</dd><dt>Limite</dt><dd>${pct(pt.limit, 2)}</dd></dl>`;
+
+    const d = R.daily, hist = d.history || {dates: [], day_pnl: []};
+    $("risk-daily").innerHTML = `<div class="section-head"><span class="idx">2</span><h2>Risque journalier</h2>${d.locked ? '<span class="chip crit">Entrées bloquées aujourd\'hui</span>' : '<span class="chip good">Entrées autorisées</span>'}</div>
+      <p class="sub">Si le fonds perd plus de ${pct(d.max_daily_loss, 1)} dans la journée, plus aucun achat le lendemain. La « VaR 99 % » est la perte qu'on ne devrait dépasser qu'un jour sur cent ; elle est plafonnée à ${pct(d.var_limit, 1)} du capital.</p>
+      <dl class="kv"><dt>P&amp;L de la séance</dt><dd class="${cls(d.today_pnl)}">${spct(d.today_pnl, 2)}</dd><dt>VaR 99 % ex ante</dt><dd>${pct(d.ex_ante_var99, 2)}</dd><dt>VaR 99 % réalisée (500 j)</dt><dd>${pct(d.realized_var99, 2)}</dd><dt>ES 99 % réalisée</dt><dd>${pct(d.realized_es99, 2)}</dd></dl>
+      <div style="margin:8px 0 4px">${meter(d.ex_ante_var99, d.var_limit)}</div>
+      <div class="chart" id="ch-daily" style="margin-top:12px"></div>`;
+    barChart($("ch-daily"), hist.dates, hist.day_pnl, {lines: [{v: -d.max_daily_loss, label: "limite −" + pct(d.max_daily_loss, 1)}], fmt: (v) => pct(v, 1), tipfmt: (v) => spct(v, 2), height: 170, label: "P&L journalier"});
+
+    const z = R.sizing, L = z.layers || {};
+    const LL = {vol_scale: "Volatilité cible", var_scale: "VaR 99 %", crypto_scale: "Plafond crypto", cppi_scale: "Budget CPPI", gross_scale: "Levier brut"};
+    $("risk-sizing").innerHTML = `<div class="section-head"><span class="idx">3</span><h2>Position sizing dynamique</h2></div>
+      <p class="sub">Comment le modèle décide combien miser : la mise baisse quand le marché est agité ou quand la conviction est faible. Chaque ligne ci-dessous est un garde-fou qui peut réduire la mise ; 100 % veut dire qu'il ne freine pas. Le « coussin » est l'argent qu'on peut risquer sans entamer le capital garanti : plus il est petit, plus on mise peu.</p>
+      <div class="grid g-2">
+        <div>${table([H("Couche"), H("Facteur", true), H("")], Object.entries(LL).map(([k, l]) => [esc(l), `<span class="num">${pct(L[k], 0)}</span>`, `<div style="min-width:110px">${meter(L[k], 1)}</div>`]))}
+          <dl class="kv" style="margin-top:10px"><dt>Volatilité ex ante / cible</dt><dd>${pct(z.ex_ante_vol)} / ${pct(z.target_vol)}</dd><dt>Utilisation du budget CPPI</dt><dd>${pct(z.cppi_usage, 0)}</dd><dt>Levier brut</dt><dd>${num(z.gross_leverage)}×</dd>
+          <dt>VL / plancher / coussin</dt><dd>${money(z.nav)} / ${money(z.floor)} / ${money(z.cushion)}</dd></dl></div>
+        <div>${table([H("Actif"), H("Perte extrême 99,9 % (EVT)", true), H("Multiplicateur m", true)], Object.keys(z.multipliers || {}).map((a) => [esc(a), `<span class="num">${pct((z.gaps || {})[a], 2)}</span>`, `<span class="num">${num(z.multipliers[a], 1)}</span>`]))}</div>
+      </div>`;
+
+    $("risk-stops").innerHTML = `<div class="section-head"><span class="idx">4</span><h2>Stop loss matériel</h2></div>
+      <p class="sub">À chaque achat, un ordre de vente automatique est déposé directement chez le courtier : si le prix baisse jusqu'à ce niveau, la position est vendue même si personne ne regarde. Quand la position gagne, ce seuil remonte pour protéger une partie du gain.</p>
+      ${table([H("Position"), H("Sens"), H("Rendement", true), H("Niveau du stop", true), H("Distance", true), H("Objectif", true), H("Ordre")], (R.hard_stops || []).map((s) => [esc(s.asset), s.side === "LONG" ? "Long" : "Short", `<span class="num ${cls(s.ret)}">${spct(s.ret, 2)}</span>`, `<span class="num">${pct(s.stop, 2)}</span>`, `<div style="display:flex;gap:8px;align-items:center"><span class="num">${pct(s.distance, 2)}</span></div>`, `<span class="num">${spct(s.tp, 2)}</span>`, `<span class="chip">${esc(s.order)}</span>`]))}`;
+  }
+
+  function renderContext() {
+    const src = S || CTX;   // le contexte ne dépend pas du calcul : visible dès l'ouverture
+    if (!src) return;
+    const c = src.context || {items: [], calendar: []};
+    $("ctx-asof").textContent = "Revue du " + (c.as_of || "—") + ". Ces éléments encadrent le modèle mais n'en sont pas des variables.";
+    $("ctx").innerHTML = c.items.map((i) => `<article><h3>${esc(i.theme)}</h3><p>${esc(i.fact)}</p><p class="src">${esc(i.source)} · <a href="${esc(i.url)}" target="_blank" rel="noopener">source</a></p></article>`).join("");
+    $("tbl-cal").innerHTML = table([H("Date"), H("Événement")], c.calendar.map((e) => [`<span class="num">${esc(e.date)}</span>`, esc(e.event)]));
+    let L = S && S.recommendations_live;
+    const LR = (LIVE && LIVE.reco_crypto) || [];
+    if (L && L.items && LR.length) {  // préconisations crypto remplacées par leur version recalculée au prix courant
+      const by = Object.fromEntries(LR.map((r) => [r.theme, r]));
+      L = Object.assign({}, L, {items: L.items.map((it) => by[it.theme] ? Object.assign({}, it, by[it.theme],
+        {risk_budget: /Ne pas investir/.test(by[it.theme].bias) ? 0 : Math.round(0.10 * Math.min(1, Math.abs(by[it.theme].score) / 0.5) * 1000) / 1000,
+         changed: it.previous_bias != null && it.previous_bias !== by[it.theme].bias}) : it)});
+    }
+    if (L && L.items) {
+      $("reco-stamp").innerHTML = `<span class="chip good">Données du ${esc(L.data_date)}</span><span class="chip">recalculé ${esc((L.generated_at || "").replace("T", " ").slice(0, 16))} UTC</span>`;
+      $("tbl-reco").innerHTML = table([H("Thème"), H("Position préconisée"), H("Évolution"), H("Score", true), H("Budget de risque", true), H("Raisonnement chiffré et risque principal"), H("Instruments")],
+        L.items.map((r) => [esc(r.theme) + (r.live ? ' <span class="chip good">● en direct</span>' : ""), `<span class="chip ${/Neutre|Ne pas investir|insuffisantes/.test(r.bias) ? "" : "long"}">${esc(r.bias)}</span>`,
+          r.previous_bias == null ? '<span class="chip">Première publication</span>' : r.changed ? `<span class="chip warn">Changé : ${esc(r.previous_bias)} → ${esc(r.bias)}</span>` : '<span class="chip">Inchangé</span>',
+          `<div style="min-width:80px"><span class="num ${cls(r.score)}">${num(r.score)}</span>${meter(Math.abs(r.score), 1)}</div>`, `<span class="num">${pct(r.risk_budget, 1)}</span>`,
+          `<p>${esc(r.rationale)}</p><p><b>Risque :</b> ${esc(r.risk)}</p>`, `<span style="font-size:12.5px">${esc(r.instruments)}</span>`]));
+      const hist = (L.history || []).slice().reverse();
+      $("tbl-reco-hist").innerHTML = table([H("Données du"), H("Changements")], hist.map((h, i) => { const prev = hist[i + 1];
+        const pb = prev ? Object.fromEntries(prev.items.map((x) => [x.theme, x.bias])) : {};
+        const ch = prev ? h.items.filter((x) => pb[x.theme] && pb[x.theme] !== x.bias).map((x) => `${esc(x.theme)} : ${esc(pb[x.theme])} → ${esc(x.bias)}`) : [];
+        return [`<span class="num">${esc(h.data_date)}</span>`, !prev ? "Première publication" : ch.length ? ch.join("<br>") : "Aucun changement"]; }));
+    } else {
+      $("reco-stamp").innerHTML = `<span class="chip warn">En attente du premier calcul</span>`;
+      $("tbl-reco").innerHTML = `<p class="empty">Les préconisations chiffrées apparaissent à la fin de l'étape 3 du premier calcul. En attendant, la revue qualitative du 27/10 est affichée ci-dessous.</p>`;
+      $("tbl-reco-hist").innerHTML = `<p class="empty">—</p>`;
+    }
+    $("tbl-reco-static").innerHTML = table([H("Thème"), H("Biais"), H("Budget", true), H("Raisonnement et risque principal")],
+      (src.recommendations || []).map((r) => [esc(r.theme), `<span class="chip long">${esc(r.bias)}</span>`, `<span class="num">${pct(r.risk_budget, 0)}</span>`, `<p>${esc(r.rationale)}</p><p><b>Risque :</b> ${esc(r.risk)}</p>`]));
+  }
+
+  function renderData() {
+    const q = Object.fromEntries((S.sources.quality || []).map((r) => [r.series_key, r]));
+    $("tbl-src").innerHTML = table([H("Série"), H("Producteur"), H("Description"), H("Fréq."), H("Dernière date"), H("Observations", true), H("Trous", true), H("Aberrations", true), H("Fraîcheur"), H("Contrôle croisé")],
+      (S.sources.coverage || []).map((s) => { const r = q[s.key] || {}; return [`<span class="mono">${esc(s.key)}</span>`, esc(s.publisher), esc(s.description), esc(s.freq), `<span class="num">${esc(s.last_date || "—")}</span>`, `<span class="num">${r.n_obs ?? "—"}</span>`, `<span class="num">${pct(r.gap_ratio, 1)}</span>`, `<span class="num">${r.n_outliers ?? "—"}</span>`, r.n_obs ? chip(!r.stale, "À jour", "Périmée") : '<span class="chip crit">Absente</span>', `<span style="font-size:12px">${esc(r.notes || "")}</span>`]; }));
+  }
+
+  // ---------------------------------------------------------------- temps réel (flux SSE, 1 message par seconde)
+  const BARS = {};          // tampon client des barres de 1 s : {BTC: [[sec, prix], ...]}
+  let JOB = null, lastMsg = 0;
+  const usd = (x, d = 2) => isNum(x) ? x.toLocaleString("fr-FR", {minimumFractionDigits: d, maximumFractionDigits: d}) + " $" : "—";
+  const hms = (sec) => new Date(sec * 1000).toLocaleTimeString("fr-FR", {hour12: false});
+  const ageTxt = (a) => !isNum(a) ? "—" : a < 1 ? "< 1 s" : a < 60 ? num(a, 1) + " s" : Math.round(a / 60) + " min";
+
+  function secChart(el, bars, lines = []) {
+    const W = el.clientWidth || 520, Hh = 170, m = {l: 70, r: 10, t: 8, b: 22};
+    if (bars.length < 3) { el.innerHTML = `<p class="empty">En attente des premières secondes de cotation…</p>`; return; }
+    const t = bars.map((b) => b[0]), y = bars.map((b) => b[1]);
+    const ys = y.concat(lines.map((l) => l.v).filter((v) => isNum(v) && v > Math.min(...y) * 0.97 && v < Math.max(...y) * 1.03));
+    let lo = Math.min(...ys), hi = Math.max(...ys); const pad = (hi - lo) * 0.08 || hi * 0.0005; lo -= pad; hi += pad;
+    const X = (v) => m.l + (v - t[0]) / Math.max(1, t[t.length - 1] - t[0]) * (W - m.l - m.r);
+    const Y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * (Hh - m.t - m.b);
+    let g = "";
+    for (let i = 0; i <= 3; i++) { const v = lo + (hi - lo) * i / 3; g += `<line class="grid-l" x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${m.l - 6}" y="${Y(v) + 4}" text-anchor="end">${v.toLocaleString("fr-FR", {maximumFractionDigits: v > 1000 ? 0 : 2})}</text>`; }
+    for (let s = Math.ceil(t[0] / 300) * 300; s <= t[t.length - 1]; s += 300) g += `<text class="axis" x="${X(s)}" y="${Hh - 6}" text-anchor="middle">${hms(s).slice(0, 5)}</text>`;
+    lines.forEach((l) => { if (isNum(l.v) && l.v > lo && l.v < hi) g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(l.v)}" y2="${Y(l.v)}" stroke="${l.c}" stroke-dasharray="4 3"/><text class="axis" x="${W - m.r}" y="${Y(l.v) - 3}" text-anchor="end">${esc(l.label)}</text>`; });
+    const d = bars.map((b, i) => (i ? "L" : "M") + X(b[0]).toFixed(1) + " " + Y(b[1]).toFixed(1)).join("");
+    const lx = X(t[t.length - 1]), ly = Y(y[y.length - 1]);
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="cours à la seconde">${g}<path d="${d} L${lx} ${Hh - m.b} L${m.l} ${Hh - m.b}Z" fill="var(--s1)" opacity=".08"/><path d="${d}" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linejoin="round"/><circle cx="${lx}" cy="${ly}" r="4" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/><line class="cross" y1="${m.t}" y2="${Hh - m.b}" stroke="var(--line-strong)" visibility="hidden"/></svg><div class="tip" hidden></div>`;
+    const svg = el.querySelector("svg"), tip = el.querySelector(".tip"), cross = el.querySelector(".cross");
+    svg.addEventListener("pointermove", (e) => { const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * W / r.width;
+      const tv = t[0] + (px - m.l) / (W - m.l - m.r) * (t[t.length - 1] - t[0]); let i = 0, best = Infinity; t.forEach((v, k) => { const dd = Math.abs(v - tv); if (dd < best) { best = dd; i = k; } });
+      cross.setAttribute("x1", X(t[i])); cross.setAttribute("x2", X(t[i])); cross.setAttribute("visibility", "visible");
+      tip.hidden = false; tip.innerHTML = `<b>${hms(t[i])}</b><br><span class="num">${usd(y[i])}</span>`; tip.style.left = Math.min((X(t[i]) / W) * r.width + 12, r.width - tip.offsetWidth - 4) + "px"; tip.style.top = "6px"; });
+    svg.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+  }
+
+  function renderFeedPill() {
+    const age = lastMsg ? (Date.now() - lastMsg) / 1000 : null, assets = (LIVE && LIVE.assets) || {};
+    const pxAge = Math.max(...Object.values(assets).map((a) => isNum(a.age) ? a.age : Infinity), -Infinity);
+    const ok = isNum(age) && age < 3 && isFinite(pxAge) && pxAge < 10;
+    $("pill-feed").className = "pill " + (ok ? "good" : age !== null && age < 3 ? "warn" : "crit");
+    $("pill-feed").lastElementChild.textContent = !LIVE ? "Flux : connexion…" : isFinite(pxAge) ? `Cours il y a ${ageTxt(pxAge + (age || 0))}` : "Cours indisponibles";
+    $("nav-live").classList.toggle("on", ok);
+    const K = LIVE && LIVE.portfolio && LIVE.portfolio.kill;
+    if (K) {  // l'état temps réel prime sur l'état publié à la dernière clôture
+      $("pill-kill").className = "pill " + (K.triggered ? "crit" : "good");
+      $("pill-kill").lastElementChild.textContent = K.triggered ? "Kill switch déclenché" : "Kill switch armé";
+      $("nav-kill").classList.toggle("on", !!K.triggered);
+    }
+    $("foot-live").textContent = LIVE ? `Moteur temps réel : ${hms(LIVE.time)} · calcul ${num(LIVE.compute_ms, 0)} ms` : "Flux temps réel en connexion…";
+  }
+
+  function renderDirect() {
+    if (!LIVE) { $("live-strip").innerHTML = `<span>Connexion au flux temps réel…</span>`; return; }
+    const F = LIVE.feed || {status: {}}, A = LIVE.assets || {}, P = LIVE.portfolio;
+    const ST = {coinbase: "Coinbase WebSocket", kraken: "Kraken WebSocket", coinbase_rest: "Coinbase REST (secours)", deribit: "Deribit (options)"};
+    $("live-strip").innerHTML = Object.entries(F.status || {}).map(([k, s]) => `<span class="chip ${s.connected ? "good" : "crit"}">${s.connected ? "●" : "○"} ${esc(ST[k] || k)}${s.connected ? "" : " : " + esc(s.error || s.mode)}</span>`).join("")
+      + `<span>Recalcul : <b class="num">${hms(LIVE.time)}</b> en <b class="num">${num(LIVE.compute_ms, 0)} ms</b></span>`
+      + `<span>Taux : dernière clôture officielle <b class="num">${esc((P && P.last_close_date) || (S && S.markets && (S.markets.find((m) => m.key === "DGS10") || {}).date) || "—")}</b>, sources vérifiées toutes les 15 min${JOB && JOB.next_refresh ? " (prochaine : " + esc(JOB.next_refresh.slice(11, 16)) + " UTC)" : ""}</span>`;
+    const posBy = Object.fromEntries(((P && P.marks) || []).map((m) => [m.asset, m]));
+    $("live-tickers").innerHTML = Object.entries(A).map(([a, q]) => {
+      const vsClose = q.ret_vs_close, mk = posBy[a];
+      return `<div class="panel ticker"><div class="head"><span style="font:600 15px var(--f-display)">${esc(a)}/USD</span><span class="chip">${esc(ST[q.venue] || q.venue || "—")} · il y a ${ageTxt(q.age)}</span></div>
+        <div class="px num">${usd(q.price)}</div>
+        <div class="meta"><span>achat ${usd(q.bid)}</span><span>vente ${usd(q.ask)}</span><span>écart ${isNum(q.bid) && isNum(q.ask) && q.price ? num((q.ask - q.bid) / q.price * 1e4, 1) + " pb" : "—"}</span>
+          <span class="${cls(vsClose)}">vs clôture ${spct(vsClose, 2)}</span><span>Kraken ${isNum(q.xvenue_gap) ? spct(-q.xvenue_gap, 3) : "—"}</span><span>${q.ticks_per_min ?? 0} trans./min</span></div>
+        <div class="meta"><span>vol. réalisée 15 min ${pct(q.rv_15m, 0)}</span><span>1 min ${spct(q.mom_1m, 3)}</span><span>15 min ${spct(q.mom_15m, 2)}</span><span>DD 1 h ${pct(q.dd_1h, 2)}</span></div>
+        <div class="chart" id="sec-${esc(a)}"></div></div>`; }).join("") || `<p class="empty">Aucun actif suivi.</p>`;
+    Object.entries(A).forEach(([a, q]) => { const mk = posBy[a];
+      secChart($("sec-" + a), BARS[a] || [], [{v: q.last_close, label: "clôture veille", c: "var(--muted)"}, mk && {v: mk.stop_px, label: "stop", c: "var(--crit)"}, mk && {v: mk.tp_px, label: "objectif", c: "var(--good)"}].filter(Boolean)); });
+    if (!P) {
+      $("live-kpis").innerHTML = `<div class="kpi" style="grid-column:1/-1"><span class="lbl">Portefeuille</span><span class="note">Le forward test démarre à la fin du premier calcul complet. Les cours ci-dessus sont déjà en direct.</span></div>`;
+      ["live-marks", "live-kill"].forEach((id) => $(id).innerHTML = `<p class="empty">En attente du premier calcul.</p>`);
+    } else {
+      const lim = S ? S.risk.daily.max_daily_loss : 0.015;
+      $("live-kpis").innerHTML = [["VL en direct", money(P.nav_live), `clôture ${money(P.nav_close)}`], ["P&L de la séance", `<span class="${cls(P.day_pnl)}">${spct(P.day_pnl, 3)}</span>`, meter(Math.min(0, P.day_pnl), lim) + `<span>limite −${pct(lim, 1)}</span>`],
+        ["P&L latent crypto", `<span class="${cls(P.intraday_pnl)}">${money(P.intraday_pnl)}</span>`, `${P.n_positions} position(s)`], ["Coussin CPPI", money(P.cushion), `${pct(P.cushion_ratio, 0)} du coussin initial`],
+        ["Drawdown", pct(P.drawdown, 2), "depuis le plus haut"], ["Entrées", P.risk_lock ? '<span class="neg">Bloquées</span>' : '<span class="pos">Autorisées</span>', P.kill.halted_until ? "arrêt jusqu'au " + esc(P.kill.halted_until) : "à la clôture"]]
+        .map(([l, v, n]) => `<div class="kpi"><span class="lbl">${esc(l)}</span><span class="val num">${v}</span><span class="note">${n}</span></div>`).join("");
+      $("live-marks").innerHTML = table([H("Actif"), H("Sens"), H("Prix", true), H("Rendement", true), H("P&L séance", true), H("Stop", true), H("Distance", true), H("Valorisation")],
+        (P.marks || []).map((m) => [`<b>${esc(m.asset)}</b>`, m.side > 0 ? "Long" : "Short", `<span class="num">${m.price ? usd(m.price) : "—"}</span>`, `<span class="num ${cls(m.ret)}">${spct(m.ret, 2)}</span>`, `<span class="num ${cls(m.pnl_intraday)}">${money(m.pnl_intraday)}</span>`,
+          `<span class="num">${m.stop_px ? usd(m.stop_px) : pct(m.stop, 2)}</span>`, `<div style="min-width:90px" title="part du stop consommée">${meter(Math.max(0, -m.ret), -m.stop)}<span class="num" style="font-size:11.5px">${pct(m.distance_to_stop, 2)}</span></div>`, `<span class="chip ${m.kind === "crypto" ? "good" : ""}">${esc(m.marked)}</span>`]));
+      const KL = {drawdown: ["Drawdown", (x) => pct(x, 2)], cushion_ratio: ["Coussin restant", (x) => pct(x, 0)], daily_loss: ["Perte de séance", (x) => pct(x, 3)], changepoint: ["Rupture (BOCPD)", (x) => pct(x, 0)],
+        feed_staleness: ["Flux interrompu", (x) => isNum(x) ? num(x, 1) + " s" : "—"], xvenue_gap: ["Écart Coinbase–Kraken", (x) => pct(x, 3)]};
+      $("live-kill").innerHTML = table([H("Contrôle"), H("Valeur", true), H("Seuil", true), H("Statut")], Object.entries(P.kill.checks || {}).map(([k, c]) => {
+        const f = (KL[k] || [k, (x) => num(x, 3)])[1]; return [esc((KL[k] || [k])[0]), `<span class="num">${f(c.value)}</span>`, `<span class="num">${f(c.limit)}</span>`, chip(!c.breach, "OK", "Atteint")]; }));
+    }
+    $("live-nowcast").innerHTML = table([H("Actif"), H("Force", true), H("Espérance 5 j", true), H("Intervalle 90 %"), H("Part ML", true), H("Part a priori", true), H("TSMOM 63 j", true), H("Lecture")],
+      Object.entries(A).map(([a, q]) => { const n = q.nowcast; if (!n) return [esc(a), "—", "—", "—", "—", "—", "—", (STATIC ? '<span class="chip">Signal mis à jour chaque soir (page Marchés)</span>' : '<span class="chip">Disponible après l\'étape 2 sur 4</span>')];
+        return [`<b>${esc(a)}</b>`, `<span class="num ${cls(n.strength)}">${num(n.strength, 3)}</span>`, `<span class="num">${spct(n.exp_ret_h, 2)}</span>`, rangeBar(n.lo_h, n.exp_ret_h, n.hi_h, 0.3), `<span class="num">${num(n.ml_z, 3)}</span>`, `<span class="num">${num(n.prior_z, 3)}</span>`, `<span class="num">${num(n.tsmom_63, 2)}</span>`,
+          n.eligible ? '<span class="chip long">Achat éligible à la clôture</span>' : n.strength < 0 ? '<span class="chip">Baissier : flat (long uniquement)</span>' : '<span class="chip">Sous le seuil d\'entrée</span>']; }));
+    const lvl = {crit: "crit", good: "good", warn: "warn", info: ""};
+    $("live-events").innerHTML = (LIVE.events || []).map((e) => `<div><time>${esc(e.t.slice(11, 19))}</time><span class="${lvl[e.level] || ""}">${esc(e.msg)}</span></div>`).join("") || `<p class="empty">Aucun événement.</p>`;
+  }
+
+  // ---------------------------------------------------------------- surfaces de volatilité
+  let VOL_T = null;
+  function tickVolStamp() { const e = document.getElementById("vol-age"); if (e && VOL_T) e.textContent = ageTxt(Date.now() / 1000 - VOL_T); }
+  let VOL = null, VOL_A = "BTC", VOL_MODE = "cm", VOL_UNIT = "bp", VOL_EXP = null;
+  const RAMP = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"];  // séquentiel bleu, clair -> foncé
+  function rampColor(t) {
+    t = Math.max(0, Math.min(1, t)); const x = t * (RAMP.length - 1), i = Math.min(Math.floor(x), RAMP.length - 2), f = x - i;
+    const a = RAMP[i].match(/\w\w/g).map((h) => parseInt(h, 16)), b = RAMP[i + 1].match(/\w\w/g).map((h) => parseInt(h, 16));
+    return "rgb(" + a.map((v, j) => Math.round(v + (b[j] - v) * f)).join(",") + ")";
+  }
+  function heatTable(rowLabels, colLabels, cell, fmt, unitTip) {
+    const vals = []; rowLabels.forEach((_, i) => colLabels.forEach((_, j) => { const v = cell(i, j); if (isNum(v)) vals.push(v); }));
+    if (!vals.length) return {html: `<p class="empty">Aucune donnée pour l'instant.</p>`, lo: null, hi: null};
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    const html = `<table class="heat"><thead><tr><th></th>${colLabels.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rowLabels.map((r, i) =>
+      `<tr><th class="row">${esc(r)}</th>${colLabels.map((c, j) => { const v = cell(i, j); if (!isNum(v)) return `<td class="na" title="hors plage cotée">·</td>`;
+        const t = (v - lo) / ((hi - lo) || 1); return `<td style="background:${rampColor(t)};color:${t > 0.45 ? "#fff" : "#0b0b0b"}" title="${esc(r)} · ${esc(c)} : ${fmt(v)}${unitTip || ""}">${fmt(v)}</td>`; }).join("")}</tr>`).join("")}</tbody></table>`;
+    return {html, lo, hi};
+  }
+  const heatLegend = (lo, hi, fmt) => lo == null ? "" : `<span>${fmt(lo)}</span><span class="bar" style="background:linear-gradient(90deg,${RAMP.join(",")})"></span><span>${fmt(hi)}</span>`;
+
+  function xyChart(el, series, opts = {}) {
+    const W = el.clientWidth || 520, Hh = opts.height || 220, m = {l: 48, r: 12, t: 10, b: 28};
+    const pts = series.flatMap((s) => s.pts).filter((p) => isNum(p[0]) && isNum(p[1]));
+    if (pts.length < 2) { el.innerHTML = `<p class="empty">Données insuffisantes.</p>`; return; }
+    const fx = opts.logx ? Math.log10 : (v) => v;
+    let x0 = Math.min(...pts.map((p) => fx(p[0]))), x1 = Math.max(...pts.map((p) => fx(p[0])));
+    const ys = pts.map((p) => p[1]).concat((opts.hlines || []).map((h) => h.v).filter(isNum));
+    let y0 = Math.min(...ys), y1 = Math.max(...ys); const pad = (y1 - y0) * 0.1 || 0.01; y0 -= pad; y1 += pad;
+    const X = (v) => m.l + (fx(v) - x0) / ((x1 - x0) || 1) * (W - m.l - m.r), Y = (v) => m.t + (1 - (v - y0) / (y1 - y0)) * (Hh - m.t - m.b);
+    let g = "";
+    for (let i = 0; i <= 4; i++) { const v = y0 + (y1 - y0) * i / 4; g += `<line class="grid-l" x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${m.l - 6}" y="${Y(v) + 4}" text-anchor="end">${pct(v, 0)}</text>`; }
+    (opts.xticks || []).forEach((t) => { if (fx(t.v) >= x0 && fx(t.v) <= x1) g += `<text class="axis" x="${X(t.v)}" y="${Hh - 8}" text-anchor="middle">${esc(t.l)}</text>`; });
+    (opts.hlines || []).forEach((h) => { if (isNum(h.v)) g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(h.v)}" y2="${Y(h.v)}" stroke="${h.c}" stroke-width="2" stroke-dasharray="5 4"/>`; });
+    const marks = series.map((s) => s.dots
+      ? s.pts.map((p) => `<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="4" fill="${s.color}" stroke="var(--surface)" stroke-width="2"><title>${esc(s.tip ? s.tip(p) : "")}</title></circle>`).join("")
+      : `<path d="${s.pts.map((p, i) => (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1)).join("")}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round"/>`
+        + (s.endDot ? s.pts.map((p) => `<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="3" fill="${s.color}"><title>${esc(s.tip ? s.tip(p) : "")}</title></circle>`).join("") : "")).join("");
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${esc(opts.label || "graphique")}">${g}${marks}</svg>`;
+  }
+
+  // ---- 3D (Plotly embarqué dans static/vendor, chargé à la première ouverture de la page)
+  let plotlyP = null;
+  function ensurePlotly() {
+    if (window.Plotly) return Promise.resolve(window.Plotly);
+    if (!plotlyP) plotlyP = new Promise((ok, ko) => { const s = document.createElement("script"); s.src = "vendor/plotly-gl3d.min.js";
+      s.onload = () => ok(window.Plotly); s.onerror = () => ko(new Error("bibliothèque 3D introuvable")); document.head.appendChild(s); });
+    return plotlyP;
+  }
+  const tok = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const HAS_WEBGL = (() => { try { const c = document.createElement("canvas"); return !!(window.WebGLRenderingContext && (c.getContext("webgl") || c.getContext("experimental-webgl"))); } catch (e) { return false; } })();
+
+  // Moteur 3D de secours (canvas 2D, sans WebGL) : facettes triées par profondeur, rotation au glisser, survol.
+  function canvas3d(el, x, y, z, o) {
+    if (el.dataset.mode !== "canvas") { el.innerHTML = ""; el.dataset.mode = "canvas"; }
+    let v = el._v3d;
+    if (!v) {
+      v = el._v3d = {yaw: -0.75, pitch: 0.55, canvas: document.createElement("canvas"), tip: document.createElement("div")};
+      v.tip.className = "tip"; v.tip.hidden = true; el.style.position = "relative";
+      el.append(v.canvas, v.tip);
+      let drag = null;
+      v.canvas.style.cursor = "grab"; v.canvas.style.touchAction = "none";
+      v.canvas.addEventListener("pointerdown", (e) => { drag = {x: e.clientX, y: e.clientY, yaw: v.yaw, pitch: v.pitch}; v.canvas.setPointerCapture(e.pointerId); v.canvas.style.cursor = "grabbing"; });
+      v.canvas.addEventListener("pointerup", () => { drag = null; v.canvas.style.cursor = "grab"; });
+      v.canvas.addEventListener("pointerleave", () => { v.tip.hidden = true; });
+      v.canvas.addEventListener("pointermove", (e) => {
+        if (drag) { v.yaw = drag.yaw + (e.clientX - drag.x) * 0.01; v.pitch = Math.max(0.05, Math.min(1.45, drag.pitch + (e.clientY - drag.y) * 0.01)); draw(); return; }
+        const r = v.canvas.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+        let best = null, bd = 196;
+        (v.pts || []).forEach((p) => { const d = (p.sx - mx) ** 2 + (p.sy - my) ** 2; if (d < bd) { bd = d; best = p; } });
+        if (best) { v.tip.hidden = false; v.tip.innerHTML = v.o.hoverText(best.x, best.y, best.z); v.tip.style.left = Math.min(mx + 14, r.width - v.tip.offsetWidth - 4) + "px"; v.tip.style.top = Math.max(0, my - 40) + "px"; }
+        else v.tip.hidden = true;
+      });
+    }
+    v.x = x; v.y = y; v.z = z; v.o = o;
+    const draw = () => {
+      const W = el.clientWidth || 600, Hh = el.clientHeight || 420, dpr = window.devicePixelRatio || 1, c = v.canvas;
+      c.width = W * dpr; c.height = Hh * dpr; c.style.width = W + "px"; c.style.height = Hh + "px";
+      const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, Hh);
+      const fx = (val) => o.xlog ? Math.log(val) : val, fy = (val) => o.ylog ? Math.log(val) : val;
+      const X = v.x.map(fx), Y = v.y.map(fy), zs = v.z.flat().filter(isNum);
+      if (!zs.length) return;
+      const x0 = Math.min(...X), x1 = Math.max(...X), y0 = Math.min(...Y), y1 = Math.max(...Y), z0 = Math.min(...zs), z1 = Math.max(...zs);
+      const nx = (a) => (a - x0) / ((x1 - x0) || 1) * 2 - 1, ny = (a) => (a - y0) / ((y1 - y0) || 1) * 2 - 1, nz = (a) => (a - z0) / ((z1 - z0) || 1) * 1.1;
+      const cy = Math.cos(v.yaw), sy = Math.sin(v.yaw), cp = Math.cos(v.pitch), sp = Math.sin(v.pitch), sc = Math.min(W, Hh) * 0.25;
+      const proj = (a, b, h) => { const rx = a * cy - b * sy, ry = a * sy + b * cy; return {sx: W / 2 + rx * sc, sy: Hh * 0.56 - (h * cp + ry * sp) * sc, d: ry * cp - h * sp}; };  // caméra au-dessus, regard vers le fond
+      const ink = tok("--ink"), muted = tok("--muted"), line = tok("--line-strong");
+      // socle et axes
+      g.strokeStyle = line; g.lineWidth = 1; g.beginPath();
+      [[-1, -1], [1, -1], [1, 1], [-1, 1], [-1, -1]].forEach(([a, b], i) => { const p = proj(a, b, 0); i ? g.lineTo(p.sx, p.sy) : g.moveTo(p.sx, p.sy); });
+      g.stroke();
+      const pv = proj(-1, -1, 0), pt = proj(-1, -1, 1.1); g.beginPath(); g.moveTo(pv.sx, pv.sy); g.lineTo(pt.sx, pt.sy); g.stroke();
+      const outlined = (t, px, py) => { g.lineWidth = 3; g.strokeStyle = tok("--surface"); g.strokeText(t, px, py); g.fillText(t, px, py); };
+      // facettes
+      const quads = [], pts = [];
+      for (let i = 0; i < v.y.length; i++) for (let j = 0; j < v.x.length; j++) {
+        const zz = v.z[i][j]; if (!isNum(zz)) continue;
+        const p = proj(nx(X[j]), ny(Y[i]), nz(zz)); pts.push(Object.assign(p, {x: v.x[j], y: v.y[i], z: zz}));
+      }
+      for (let i = 0; i < v.y.length - 1; i++) for (let j = 0; j < v.x.length - 1; j++) {
+        const c4 = [[i, j], [i, j + 1], [i + 1, j + 1], [i + 1, j]], zz = c4.map(([a, b]) => v.z[a][b]);
+        if (!zz.every(isNum)) continue;
+        const P = c4.map(([a, b], k) => proj(nx(X[b]), ny(Y[a]), nz(zz[k])));
+        quads.push({P, d: P.reduce((s2, p) => s2 + p.d, 0) / 4, t: ((zz[0] + zz[1] + zz[2] + zz[3]) / 4 - z0) / ((z1 - z0) || 1)});
+      }
+      quads.sort((a, b) => b.d - a.d);
+      quads.forEach((q) => { g.beginPath(); q.P.forEach((p, k) => k ? g.lineTo(p.sx, p.sy) : g.moveTo(p.sx, p.sy)); g.closePath();
+        g.fillStyle = rampColor(q.t); g.fill(); g.strokeStyle = "rgba(255,255,255,0.35)"; g.lineWidth = 0.5; g.stroke(); });
+      v.pts = pts;
+      g.fillStyle = muted; g.font = "11px IBM Plex Mono, monospace"; g.textAlign = "center";
+      const tickX = o.xticks || [v.x[0], v.x[Math.floor(v.x.length / 2)], v.x[v.x.length - 1]];
+      tickX.forEach((t) => { const p = proj(nx(fx(t)), -1.18, 0); outlined(o.xfmt ? o.xfmt(t) : t, p.sx, p.sy + 4); });
+      const tickY = o.yticks || [v.y[0], v.y[Math.floor(v.y.length / 2)], v.y[v.y.length - 1]];
+      tickY.forEach((t) => { const p = proj(1.15, ny(fy(t)), 0); outlined(o.yfmt ? o.yfmt(t) : t, p.sx, p.sy + 4); });
+      [z0, (z0 + z1) / 2, z1].forEach((t) => { const p = proj(-1, -1, nz(t)); g.textAlign = "right"; outlined(num(t, 0), p.sx - 6, p.sy + 4); });
+      g.fillStyle = ink; g.font = "12px IBM Plex Sans, system-ui, sans-serif"; g.textAlign = "center";
+      const lx = proj(0, -1.5, 0), ly = proj(1.5, 0, 0), lz = proj(-1, -1, 1.32);
+      outlined(o.xt, lx.sx, lx.sy + 6); outlined(o.yt, ly.sx, ly.sy + 6); outlined(o.zt, lz.sx, lz.sy - 4);
+      g.fillStyle = muted; g.textAlign = "left"; g.font = "11px IBM Plex Sans, system-ui, sans-serif";
+      g.fillText("Vue 3D simplifiée (WebGL indisponible) · cliquez-glissez pour tourner", 8, Hh - 8);
+    };
+    draw();
+  }
+
+  function surface3d(el, x, y, z, o) {
+    const fallback = (why) => { canvas3d(el, x, y, z, o); if (why) console.warn("3D de secours :", why); };
+    if (!HAS_WEBGL) return fallback("WebGL indisponible");
+    ensurePlotly().then((P) => {
+      if (el.dataset.mode === "canvas") { el.innerHTML = ""; el._v3d = null; }
+      el.dataset.mode = "plotly";
+      const ink = tok("--ink"), muted = tok("--muted"), line = tok("--line"), bg = tok("--surface");
+      const ax = (title, extra) => Object.assign({title: {text: title, font: {size: 12, color: ink}}, color: muted, gridcolor: line, zerolinecolor: line,
+        showbackground: true, backgroundcolor: bg, tickfont: {size: 10, color: muted}}, extra || {});
+      const data = [{type: "surface", x, y, z, connectgaps: false, colorscale: RAMP.map((c, i) => [i / (RAMP.length - 1), c]),
+        colorbar: {title: {text: o.unit, side: "right", font: {color: ink, size: 11}}, tickfont: {color: muted, size: 10}, thickness: 12, len: 0.7, outlinewidth: 0},
+        hovertemplate: o.hover + "<extra></extra>", lighting: {ambient: 0.75, diffuse: 0.6, specular: 0.08, roughness: 0.9},
+        contours: {z: {show: true, usecolormap: true, highlightcolor: ink, project: {z: false}, width: 1}}}];
+      const layout = {uirevision: o.rev, margin: {l: 0, r: 0, t: 0, b: 0}, paper_bgcolor: bg, font: {family: "IBM Plex Sans, system-ui, sans-serif", color: ink},
+        scene: {xaxis: ax(o.xt, o.xa), yaxis: ax(o.yt, o.ya), zaxis: ax(o.zt), camera: {eye: o.eye || {x: 1.55, y: -1.65, z: 0.85}}, aspectmode: "manual", aspectratio: {x: 1.25, y: 1.25, z: 0.75}},
+        hoverlabel: {bgcolor: bg, bordercolor: line, font: {color: ink, size: 12}}};
+      return P.react(el, data, layout, {displaylogo: false, responsive: true, modeBarButtonsToRemove: ["toImage", "resetCameraLastSave3d"]});
+    }).catch((e) => { el.dataset.mode = ""; try { window.Plotly && window.Plotly.purge(el); } catch (err) { /* rien */ } fallback(e && e.message); });
+  }
+
+  function panelMessage(el, html) {
+    if (el._v3d || el.dataset.mode) { try { window.Plotly && Plotly.purge(el); } catch (e) { /* rien */ } el._v3d = null; el.dataset.mode = ""; }
+    el.innerHTML = `<div class="plot-msg">${html}</div>`;
+  }
+
+  async function loadVol() {
+    if (STATIC) { VOL = window.QGStatic.vol(S); renderVol(); return; }
+    try { VOL = await (await fetch("api/vol", {cache: "no-store"})).json(); renderVol(); } catch (e) { /* serveur indisponible */ }
+  }
+
+  function renderVol() {
+    document.querySelectorAll("#vol-tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.a === VOL_A ? "true" : "false"));
+    const crypto = VOL_A === "BTC" || VOL_A === "ETH";
+    $("vol-crypto").hidden = !crypto; $("vol-rates").hidden = crypto;
+    if (!VOL) { $("vol-stamp").textContent = "Chargement…"; return; }
+    if (crypto) renderVolCrypto(); else renderVolRates();
+  }
+
+  function renderVolCrypto() {
+    const D = (VOL.crypto || {})[VOL_A] || {}, S2 = D.surface;
+    VOL_T = D.updated_at ? Date.now() / 1000 - (D.age || 0) : null;
+    $("vol-stamp").innerHTML = D.status === "ok" ? `<span class="chip good">● En direct · Deribit · mise à jour il y a <span id="vol-age">${ageTxt(D.age)}</span></span> ${S2 ? S2.n_options : 0} options · ${D.n_updates || 0} recalculs`
+      : `<span class="chip ${D.status === "erreur" ? "crit" : "warn"}">${D.status === "erreur" ? "✕ Deribit : " + esc(D.error) : "Connexion à Deribit…"}</span>`;
+    if (!S2 || !S2.slices.length) {
+      ["vol-kpis", "vol-heat", "vol-term", "vol-smile", "vol-slices", "vol-legend"].forEach((id) => $(id).innerHTML = "");
+      panelMessage($("vol-3d"), D.status === "erreur"
+        ? `<b>Les options Deribit n'arrivent pas.</b><br>Message : <span class="mono">${esc(D.error || "inconnu")}</span><br>Vérifiez que <span class="mono">www.deribit.com</span> s'ouvre dans votre navigateur ; un pare-feu, un proxy d'entreprise ou un antivirus peut le bloquer. Nouvel essai automatique toutes les 2 secondes.`
+        : S2 ? "Deribit répond, mais sans échéance exploitable pour l'instant." : "Connexion à Deribit en cours… la surface apparaît en quelques secondes.");
+      $("vol-heat").innerHTML = `<p class="empty">En attente des options Deribit.</p>`;
+      return;
+    }
+    const near30 = S2.slices.reduce((a, s) => Math.abs(s.days - 30) < Math.abs(a.days - 30) ? s : a, S2.slices[0]);
+    const garch = ((VOL.model || {}).crypto || []).find((x) => x.asset === VOL_A);
+    const vrpTxt = !isNum(S2.vrp_30d) ? "" : S2.vrp_30d > 0 ? "le marché s'attend à plus d'agitation qu'observé" : "le marché s'attend à moins d'agitation qu'observé";
+    $("vol-kpis").innerHTML = [["Agitation attendue (1 mois)", pct(S2.atm_30d), "selon le prix des options"], ["Agitation constatée (1 mois)", pct(S2.realized_30d), "mouvements réels des 30 derniers jours"],
+      ["Écart attendu − constaté", `<span class="${cls(S2.vrp_30d)}">${isNum(S2.vrp_30d) ? (S2.vrp_30d > 0 ? "+" : "") + num(S2.vrp_30d * 100, 1) + " pts" : "—"}</span>`, vrpTxt],
+      ["Peur de baisse", isNum(near30.rr25) ? (near30.rr25 > 0 ? "+" : "") + num(near30.rr25 * 100, 1) + " pts" : "—", isNum(near30.rr25) ? (near30.rr25 < 0 ? "les protections contre une chute coûtent plus cher" : "les paris sur une hausse coûtent plus cher") : ""],
+      ["Prix des scénarios extrêmes", isNum(near30.bf25) ? num(near30.bf25 * 100, 1) + " pts" : "—", "plus c'est haut, plus un choc est redouté"],
+      ["Agitation prévue par le modèle", garch ? pct(garch.vol[30]) : "—", "modèle statistique GARCH, 1 mois"]]
+      .map(([l, v, n]) => `<div class="kpi"><span class="lbl">${esc(l)}</span><span class="val num">${v}</span><span class="note">${n}</span></div>`).join("");
+    const cols = S2.delta_cols, fmtv = (v) => num(v * 100, 1);
+    let ht;
+    if (VOL_MODE === "cm") ht = heatTable(S2.constant_maturity.map((r) => r.days + " j"), cols, (i, j) => S2.constant_maturity[i].deltas[cols[j]], fmtv, " %");
+    else ht = heatTable(S2.slices.map((s) => `${s.expiry} (${Math.round(s.days)} j)`), cols, (i, j) => S2.slices[i].deltas[cols[j]], fmtv, " %");
+    $("vol-heat").innerHTML = ht.html;
+    const G = S2.grid3d;
+    if (!G) panelMessage($("vol-3d"), "La 3D demande la nouvelle version du serveur : <b>fermez la fenêtre noire de QuantGuard</b>, puis relancez <span class=\"mono\">start.bat</span>.");
+    else if (G.days.length < 2) panelMessage($("vol-3d"), "Pas assez d'échéances cotées pour dessiner une surface (il en faut au moins deux).");
+    else surface3d($("vol-3d"), G.moneyness, G.days, G.iv, {rev: VOL_A, unit: "Vol. %",
+      xt: "Prix d'exercice (% du prix actuel)", yt: "Jours avant l'échéance", zt: "Volatilité attendue (%)", ya: {type: "log"},
+      hover: "Prix d'exercice : %{x:.0f} % du prix actuel<br>Échéance : %{y:.0f} jours<br>Volatilité attendue : %{z:.1f} %",
+      ylog: true, xticks: [50, 75, 100, 150, 200], xfmt: (t) => t + " %", yticks: [G.days[0], G.days[Math.floor(G.days.length / 2)], G.days[G.days.length - 1]], yfmt: (t) => Math.round(t) + " j",
+      hoverText: (a, b, c) => `Prix d'exercice : <b>${num(a, 0)} %</b> du prix actuel<br>Échéance : <b>${Math.round(b)} jours</b><br>Volatilité attendue : <b>${num(c, 1)} %</b>`});
+    const arb = S2.calendar_violations + S2.butterfly_violations;
+    $("vol-legend").innerHTML = heatLegend(ht.lo, ht.hi, (v) => num(v * 100, 0) + " %")
+      + `<span style="margin-left:auto">${arb ? `<span class="chip crit">✕ ${arb} alerte(s) d'arbitrage</span>` : '<span class="chip good">✓ Aucun arbitrage papillon ni calendrier</span>'}</span>`;
+    xyChart($("vol-term"), [{pts: S2.slices.map((s) => [s.days, s.atm]), color: "var(--s1)", endDot: true, tip: (p) => `${Math.round(p[0])} j : ${pct(p[1])}`}],
+      {logx: true, hlines: [{v: S2.realized_30d, c: "var(--s2)"}], xticks: [{v: 2, l: "2 j"}, {v: 7, l: "1 sem"}, {v: 30, l: "1 mois"}, {v: 90, l: "3 mois"}, {v: 180, l: "6 mois"}, {v: 365, l: "1 an"}], label: "structure par terme ATM"});
+    const sel = $("vol-exp");
+    if (!VOL_EXP || !S2.slices.some((s) => s.expiry === VOL_EXP)) VOL_EXP = near30.expiry;
+    const opts = S2.slices.map((s) => `<option value="${esc(s.expiry)}"${s.expiry === VOL_EXP ? " selected" : ""}>${esc(s.expiry)} · ${Math.round(s.days)} j</option>`).join("");
+    if (sel.dataset.opts !== opts && document.activeElement !== sel) { sel.innerHTML = opts; sel.dataset.opts = opts; }
+    const sl = S2.slices.find((s) => s.expiry === VOL_EXP);
+    xyChart($("vol-smile"), [{pts: sl.fit.map((p) => [p.m, p.iv]), color: "var(--s1)"}, {pts: sl.market.map((p) => [p.m, p.iv, p.K, p.cp]), color: "var(--s2)", dots: true, tip: (p) => `Strike ${p[2]} ${p[3] === "C" ? "call" : "put"} : ${pct(p[1])}`}],
+      {xticks: [0.5, 0.75, 1, 1.25, 1.5, 2].map((v) => ({v, l: num(v, 2)})), label: "smile de volatilité"});
+    $("vol-slices").innerHTML = table([H("Échéance"), H("Jours", true), H("Forward", true), H("Options", true), H("ATM", true), H("RR 25Δ", true), H("BF 25Δ", true), H("Erreur SVI", true), H("Arbitrage papillon")],
+      S2.slices.map((s) => [esc(s.expiry), `<span class="num">${num(s.days, 1)}</span>`, `<span class="num">${usd(s.forward, 0)}</span>`, `<span class="num">${s.n}</span>`, `<span class="num">${pct(s.atm)}</span>`,
+        `<span class="num ${cls(s.rr25)}">${isNum(s.rr25) ? num(s.rr25 * 100, 1) + " pts" : "—"}</span>`, `<span class="num">${isNum(s.bf25) ? num(s.bf25 * 100, 1) + " pts" : "—"}</span>`,
+        `<span class="num">${num(s.rmse * 100, 2)} pt</span>`, chip(s.butterfly_ok, "Aucun", "Détecté")]));
+  }
+
+  function renderVolRates() {
+    const M = VOL.model;
+    document.querySelectorAll("#vol-unit button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.u === VOL_UNIT ? "true" : "false"));
+    $("vol-stamp").innerHTML = M ? `<span class="chip">Modèle GARCH · données du ${esc(VOL.data_date || "—")}</span>` : `<span class="chip warn">Disponible après le premier calcul</span>`;
+    if (!M) {
+      panelMessage($("vol-rates-3d"), VOL.data_date ? "La surface des taux apparaîtra au prochain calcul (nouvelle version) : relancez le calcul depuis la page Direct ou attendez la mise à jour automatique."
+        : "La surface des taux apparaît à la fin de l'étape 3 du premier calcul (barre de progression en haut de page).");
+      $("vol-rates-heat").innerHTML = ""; $("vol-rates-params").innerHTML = ""; $("vol-rates-legend").innerHTML = ""; return;
+    }
+    const rows = M.rates.filter((r) => r.region === VOL_A), H5 = M.horizons, HL = {5: "1 semaine", 21: "1 mois", 63: "3 mois", 126: "6 mois", 252: "1 an"};
+    const get = (i, j) => VOL_UNIT === "bp" ? rows[i].bp_vol[H5[j]] : rows[i].vol[H5[j]];
+    const fmtv = VOL_UNIT === "bp" ? (v) => num(v, 0) : (v) => num(v * 100, 2);
+    const ht = heatTable(rows.map((r) => `${VOL_A === "US" ? "Treasury" : "AAA zone euro"} ${r.maturity} ans`), H5.map((h) => HL[h] || h + " j"), get, fmtv, VOL_UNIT === "bp" ? " pb/an" : " %");
+    $("vol-rates-heat").innerHTML = ht.html;
+    if (rows.length >= 2) surface3d($("vol-rates-3d"), H5, rows.map((r) => r.maturity), rows.map((r) => H5.map((h) => VOL_UNIT === "bp" ? r.bp_vol[h] : r.vol[h] * 100)), {
+      rev: VOL_A + VOL_UNIT, unit: VOL_UNIT === "bp" ? "pb / an" : "% / an", xt: "Horizon", yt: "Durée de l'obligation (ans)",
+      zt: VOL_UNIT === "bp" ? "Variation attendue (pb / an)" : "Variation du prix (% / an)",
+      xa: {type: "log", tickvals: H5, ticktext: H5.map((h) => HL[h] || h + " j")}, ya: {type: "log", tickvals: [2, 5, 10, 30]},
+      hover: VOL_UNIT === "bp" ? "Obligation %{y} ans · horizon %{x} séances<br>Variation attendue : %{z:.0f} pb par an" : "Obligation %{y} ans · horizon %{x} séances<br>Variation du prix : %{z:.2f} % par an",
+      xlog: true, ylog: true, xticks: H5, xfmt: (t) => HL[t] || t + " j", yticks: [2, 5, 10, 30], yfmt: (t) => t + " ans",
+      hoverText: (a, b, c) => `Obligation <b>${b} ans</b> · horizon <b>${HL[a] || a + " j"}</b><br>${VOL_UNIT === "bp" ? `Variation attendue : <b>${num(c, 0)} pb</b> par an` : `Variation du prix : <b>${num(c, 2)} %</b> par an`}`});
+    else panelMessage($("vol-rates-3d"), "Pas assez de maturités disponibles pour dessiner une surface.");
+    $("vol-rates-legend").innerHTML = heatLegend(ht.lo, ht.hi, VOL_UNIT === "bp" ? (v) => num(v, 0) + " pb" : (v) => num(v * 100, 1) + " %");
+    $("vol-rates-params").innerHTML = table([H("Instrument"), H("Duration", true), H("Persistance α+β", true), H("Demi-vie", true), H("Vol 1 sem.", true), H("Vol 1 an", true)],
+      rows.map((r) => [esc(r.asset), `<span class="num">${num(r.duration, 1)}</span>`, `<span class="num">${num(r.persistence, 3)}</span>`, `<span class="num">${isNum(r.half_life) ? num(r.half_life, 0) + " séances" : "—"}</span>`,
+        `<span class="num">${num(r.bp_vol[5], 0)} pb</span>`, `<span class="num">${num(r.bp_vol[252], 0)} pb</span>`]));
+  }
+
+  document.querySelectorAll("#vol-tabs button").forEach((b) => b.addEventListener("click", () => { VOL_A = b.dataset.a; renderVol(); }));
+  document.querySelectorAll("#vol-mode button").forEach((b) => b.addEventListener("click", () => { VOL_MODE = b.dataset.m; document.querySelectorAll("#vol-mode button").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false")); renderVol(); }));
+  document.querySelectorAll("#vol-unit button").forEach((b) => b.addEventListener("click", () => { VOL_UNIT = b.dataset.u; renderVol(); }));
+  $("vol-exp").addEventListener("change", (e) => { VOL_EXP = e.target.value; renderVol(); });
+
+  // ---------------------------------------------------------------- diagnostic des sources et clé FRED
+  let SRC = null;
+  const PROV = {FRED: "FRED (Fed de Saint-Louis)", ECB: "BCE", TREASURY: "Trésor US", COINBASE: "Coinbase", KRAKEN: "Kraken"};
+  async function loadSources() {
+    if (STATIC) { $("fred-form").innerHTML = `<p class="sub" style="margin:0">Édition en ligne : la clé se configure dans les secrets du dépôt GitHub (<span class="mono">FRED_API_KEY</span>), voir VERCEL.md.</p>`; $("tbl-diag-src").innerHTML = `<p class="empty">Le diagnostic détaillé est dans le journal du workflow GitHub « QuantGuard quotidien ». Le tableau ci-dessous donne la fraîcheur de chaque série.</p>`; return; }
+    try { SRC = await (await fetch("api/sources", {cache: "no-store"})).json(); renderSources(); } catch (e) { /* serveur indisponible */ }
+  }
+  function fredForm(id) {
+    return `<form class="fred" id="${id}" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <label for="${id}-k" style="font-size:13px">Clé FRED</label>
+      <input id="${id}-k" name="k" autocomplete="off" spellcheck="false" placeholder="32 caractères, ex. abcd1234…" style="font:13px var(--f-mono);padding:6px 8px;border:1px solid var(--line-strong);border-radius:var(--r);background:var(--surface);color:var(--ink);min-width:0;flex:1 1 260px">
+      <button class="btn" type="submit">Enregistrer et relancer</button>
+      <a href="https://fredaccount.stlouisfed.org/apikey" target="_blank" rel="noopener" style="font-size:13px">Obtenir une clé gratuite</a>
+      <span class="fred-msg" style="font-size:12.5px;flex-basis:100%"></span></form>`;
+  }
+  function bindFred(id) {
+    const f = $(id); if (!f || f.dataset.bound) return; f.dataset.bound = "1";
+    f.addEventListener("submit", async (e) => { e.preventDefault(); const msg = f.querySelector(".fred-msg");
+      msg.textContent = "Enregistrement…";
+      try { const r = await fetch("api/settings", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({fred_api_key: f.querySelector("input").value})});
+        const j = await r.json(); msg.textContent = j.message; msg.style.color = j.ok ? "var(--good-ink)" : "var(--crit)"; if (j.ok) loadSources();
+      } catch (err) { msg.textContent = "Serveur injoignable."; } });
+  }
+  function sourceSummary() {
+    if (!SRC) return "";
+    const bad = SRC.sources.filter((s) => s.status === "error"), by = {};
+    bad.forEach((s) => { (by[s.provider] = by[s.provider] || []).push(s); });
+    const total = {}; SRC.sources.forEach((s) => total[s.provider] = (total[s.provider] || 0) + 1);
+    if (!bad.length) return "";
+    return `<div style="display:grid;gap:4px;font-size:12.5px"><b style="font:600 13px var(--f-display)">Sources en échec</b>${Object.entries(by).map(([p, arr]) =>
+      `<div><b>${esc(PROV[p] || p)}</b> : ${arr.length}/${total[p]} séries — <span class="mono">${esc(arr[0].message)}</span></div>`).join("")}</div>`;
+  }
+  function renderSources() {
+    if (!SRC) return;
+    const fredBad = SRC.sources.some((s) => s.provider === "FRED" && s.status === "error");
+    $("fred-form").innerHTML = (SRC.fred_key ? `<p style="margin:0 0 8px"><span class="chip good">✓ Clé FRED enregistrée</span> Vous pouvez la remplacer :</p>` : "") + fredForm("ff-page");
+    bindFred("ff-page");
+    $("tbl-diag-src").innerHTML = table([H("Série"), H("Source"), H("Statut"), H("Dernière date"), H("Message")],
+      SRC.sources.map((s) => [`<span class="mono">${esc(s.key)}</span>`, esc(PROV[s.provider] || s.provider),
+        s.status === "ok" ? '<span class="chip good">✓ OK</span>' : s.status === "error" ? '<span class="chip crit">✕ Échec</span>' : `<span class="chip">${esc(s.status)}</span>`,
+        `<span class="num">${esc(s.last_date || "—")}</span>`, `<span style="font-size:12px">${esc(s.message || "")}</span>`]));
+    renderProgress();
+  }
+
+  const STEP_LBL = ["Collecte des données officielles", "Entraînement des modèles", "Backtest et premier tableau de bord", "Validation complète (27 configurations)"];
+  function renderProgress() {
+    if (STATIC) return;
+    const j = JOB || {}, pr = j.progress || {}, pending = !S || (S.validation && S.validation.pending);
+    const el = $("progress");
+    if (!SERVED || (!pending && !j.last_error) || (!j.running && !j.last_error && S)) { if (el.innerHTML) el.innerHTML = ""; return; }
+    const step = pr.step || 0, since = j.started_at ? Math.max(0, (Date.now() - Date.parse(j.started_at)) / 60000) : null;
+    const last = (j.log || []).length ? j.log[j.log.length - 1] : null;
+    const err = !j.running && j.last_error;
+    const html = `<div class="prog ${err ? "err" : ""}">
+      <div class="row"><b>${err ? "Le calcul s'est arrêté sur une erreur" : !S ? "Premier calcul en cours : les pages se remplissent à la fin de l'étape 3" : "Validation complète en cours"}</b>
+        ${j.running && step ? `<span>Étape ${step} sur 4${since !== null ? " · " + Math.floor(since) + " min écoulées" : ""}</span>` : ""}
+        ${err ? `<button class="btn" id="btn-retry" type="button">Relancer le calcul</button>` : ""}</div>
+      ${err ? `<div class="last">${esc(j.last_error)}</div>${sourceSummary()}${SRC && !SRC.fred_key && SRC.sources.some((s) => s.provider === "FRED" && s.status === "error") ? `<div style="font-size:12.5px">FRED exige désormais une clé d'API gratuite. Collez-la ici puis le calcul repart :</div>${fredForm("ff-banner")}` : ""}` : ""}
+      <div class="steps4">${STEP_LBL.map((l, i) => `<span class="${i + 1 < step || (S && !S.validation.pending) ? "done" : i + 1 === step && j.running ? "cur" : ""}">${i + 1}. ${esc(l)}</span>`).join("")}</div>
+      ${last ? `<div class="last">${esc(last.t)} · ${esc(last.msg)}</div>` : ""}
+      ${!err ? `<div style="font-size:12.5px;color:var(--ink-2)">Durée habituelle : 10 à 25 minutes selon l'ordinateur. Gardez la fenêtre noire ouverte ; la page se met à jour toute seule.</div>` : `<div style="font-size:12.5px;color:var(--ink-2)">Le calcul est aussi retenté automatiquement toutes les 15 minutes.</div>`}
+    </div>`;
+    if (html === el.dataset.html) return;   // pas de re-rendu inutile (le bouton garde son état)
+    if (el.querySelector("#ff-banner-k") === document.activeElement) return;  // ne pas effacer une saisie en cours
+    el.dataset.html = html; el.innerHTML = html; bindFred("ff-banner");
+    const b = $("btn-retry");
+    if (b) b.addEventListener("click", async () => { b.disabled = true; b.textContent = "Lancement…";
+      try { const r = await (await fetch("api/job/retry", {method: "POST"})).json(); b.textContent = r.message; } catch (e) { b.textContent = "Serveur injoignable"; } });
+  }
+
+  async function renderJob() {
+    if (STATIC) { $("job-sub").textContent = "Édition en ligne : collecte, entraînement et forward test tournent chaque soir de semaine sur GitHub Actions."; $("job-log").innerHTML = S ? `<div><time>${esc((S.generated_at || "").slice(11, 16))}</time><span>Dernière publication : ${esc((S.generated_at || "").replace("T", " ").slice(0, 16))} UTC</span></div>` : `<p class="empty">Pas encore de publication.</p>`; return; }
+    try { const j = await (await fetch("api/job", {cache: "no-store"})).json(); JOB = j; renderProgress();
+      $("job-sub").textContent = j.running ? "En cours : " + j.task + " (depuis " + (j.started_at || "").slice(11, 16) + " UTC)" : j.last_error ? "Dernière erreur : " + j.last_error : j.finished_at ? "Au repos. Dernier traitement terminé à " + j.finished_at.slice(11, 16) + " UTC" : "Aucun traitement depuis le démarrage du serveur.";
+      $("job-log").innerHTML = (j.log || []).slice().reverse().map((l) => `<div><time>${esc(l.t)}</time><span class="${l.level === "ERROR" ? "crit" : l.level === "WARNING" ? "warn" : ""}">${esc(l.msg)}</span></div>`).join("") || `<p class="empty">Aucun traitement lancé.</p>`;
+    } catch (e) { /* serveur indisponible */ }
+  }
+
+  function onLive(msg) {
+    LIVE = msg.live; JOB = Object.assign(JOB || {}, msg.job || {}); lastMsg = Date.now();
+    Object.entries((LIVE && LIVE.assets) || {}).forEach(([a, q]) => { if (!isNum(q.price)) return; const b = BARS[a] = BARS[a] || []; const sec = Math.floor(LIVE.time);
+      if (b.length && b[b.length - 1][0] === sec) b[b.length - 1][1] = q.price; else b.push([sec, q.price]); if (b.length > 900) b.splice(0, b.length - 900); });
+    renderFeedPill();
+    renderProgress();
+    const h = (location.hash || "#direct").slice(1);
+    if (h === "direct" || !PAGES[h]) renderDirect();
+    else if (S && h === "positions") renderPositions();
+    else if (S && h === "marches") renderMarkets();
+    else if (S && h === "apercu") renderOverviewKPIs();
+    else if (S && h === "risques") renderRisk();
+    else if (h === "contexte") renderContext();
+  }
+
+  function connect() {
+    if (STATIC) { window.QGStatic.start(() => S, onLive); return; }
+    Object.keys(BARS).length || ["BTC", "ETH"].forEach(async (a) => { try { const j = await (await fetch("api/bars?asset=" + a + "&seconds=900")).json(); if ((j.bars || []).length) BARS[a] = j.bars.concat(BARS[a] || []).filter((v, i, arr) => !i || v[0] > arr[i - 1][0]); } catch (e) { /* rien */ } });
+    const es = new EventSource("api/stream");
+    es.onmessage = (e) => { try { onLive(JSON.parse(e.data)); } catch (err) { console.error(err); } };
+    es.onerror = () => { renderFeedPill(); };
+  }
+
+  // ---------------------------------------------------------------- navigation et cycle de vie
+  function route() {
+    let h = (location.hash || (SERVED ? "#direct" : "#apercu")).slice(1); if (!PAGES[h]) h = "apercu";
+    Object.keys(PAGES).forEach((k) => $("p-" + k).hidden = k !== h);
+    document.querySelectorAll("#nav a").forEach((a) => { if (a.getAttribute("href") === "#" + h) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+    $("page-title").textContent = PAGES[h];
+    if (h === "direct") renderDirect();
+    if (h === "contexte") renderContext();
+    if (h === "vol") { renderVol(); loadVol(); }
+    if (S) renderAll();
+  }
+  function renderAll() {
+    try { renderHeader(); renderOverview(); renderPositions(); renderMarkets(); renderValidation(); renderRisk(); renderContext(); renderData(); }
+    catch (e) { console.error(e); $("banner").innerHTML = `<div class="banner"><b>Erreur d'affichage.</b> ${esc(e.message)}</div>`; }
+  }
+  let stateStamp = null;
+  async function pollState() {
+    try {
+      const r0 = await fetch(STATIC ? "state.json" : "api/state", {cache: "no-store"});
+      const j = STATIC && !r0.ok ? {error: "static-missing"} : await r0.json();
+      if (j.error === "static-missing") { if (!S) $("banner").innerHTML = `<div class="banner info"><b>Aucun calcul publié pour l'instant.</b> Les prix et la surface de volatilité sont déjà en direct. Pour remplir les autres pages, ajoutez le fichier <span class="mono">public/state.json</span> (copie de <span class="mono">var\\state.json</span> de votre PC, produit par la version locale), ou lancez le workflow GitHub « QuantGuard quotidien » si vous utilisez l'édition complète.</div>`; }
+      else if (j.error) { if (!S && j.error !== "pending") $("banner").innerHTML = `<div class="banner info">${esc(j.error)}</div>`; }
+      else if (j.generated_at !== stateStamp) { stateStamp = j.generated_at; S = j; renderAll(); }
+    } catch (e) { /* hors ligne : on garde le dernier état */ }
+    renderJob();
+    loadSources();
+  }
+  window.addEventListener("hashchange", route);
+  let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { S && renderAll(); renderDirect(); }, 150); });
+  route();
+  if (S) { renderAll(); $("foot-live").textContent = "Instantané statique"; }
+  const APP_VERSION = "0.3.0";  // doit correspondre à quantguard.__version__
+  if (SERVED) {
+    if (!STATIC) fetch("api/health", {cache: "no-store"}).then((r) => r.json()).then((h) => {
+      if (h.version !== APP_VERSION) $("progress").insertAdjacentHTML("beforebegin",
+        `<div class="banner"><b>Ancienne version du serveur encore active.</b> La page a été mise à jour mais le programme qui tourne est l'ancien : fermez la fenêtre noire de QuantGuard, puis relancez <span class="mono">start.bat</span> (ou le raccourci).</div>`);
+    }).catch(() => {});
+    if (!STATIC) fetch("api/context").then((r) => r.json()).then((j) => { CTX = j; renderContext(); }).catch(() => {});
+    connect(); pollState(); setInterval(pollState, 10000); setInterval(renderFeedPill, 500);
+    setInterval(() => { if ((location.hash || "").slice(1) === "vol") loadVol(); }, 1000);  // surface rafraîchie chaque seconde
+    setInterval(tickVolStamp, 250);
+  }
+  else if (!S) $("banner").innerHTML = `<div class="banner info">Aucun état publié. Lancez <span class="mono">python run.py</span>.</div>`;
+})();
+</script>
+</body>
+</html>
